@@ -43,6 +43,7 @@ export default handler(async (req, res) => {
     console.error('[page] render failed for', slug, err.message);
     return sendHtml(res, 500, renderNotFound('This store has a problem we\'re fixing.'), 'no-store');
   }
-  // Short CDN cache: edits show up within ~30s, repeat visits stay fast.
-  sendHtml(res, 200, html, 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
+  // Short CDN cache: repeat visits stay fast, and edits or an unpublish reach every visitor within
+  // ~30s (≤10s fresh + ≤20s stale-while-revalidate). Browsers always revalidate (max-age=0).
+  sendHtml(res, 200, html, 'public, max-age=0, s-maxage=10, stale-while-revalidate=20');
 });

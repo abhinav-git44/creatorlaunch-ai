@@ -1,105 +1,90 @@
 # CreatorLaunch AI
 
-Turn a creator's short description (or Instagram username) into a ready-to-publish storefront: an AI-written bio, 2–4 product ideas with India-appropriate INR pricing, product copy, and a mobile landing page at a public, shareable URL.
+Turn a creator's short description (or Instagram username) into a ready-to-publish storefront: an AI-written bio, 2–4 distinct product ideas with India-appropriate INR pricing and a reason for each price, product copy, and a mobile landing page at a public, shareable URL with buttons that actually reach the creator.
 
-Built as the SuperProfile *AI Storefront Generator* take-home (PM, AI-native 0→1).
+Built for the SuperProfile *AI Storefront Generator* take-home (PM, AI-native 0→1).
 
 - **Live app:** https://creatorlaunch-ai1.vercel.app
-- **Decision doc:** [`DECISION_DOC.md`](DECISION_DOC.md)
+- **Decision doc:** [`DECISION_DOC.md`](DECISION_DOC.md) · [PDF](DECISION_DOC.pdf)
 - **Loom script:** [`LOOM_SCRIPT.md`](LOOM_SCRIPT.md)
+- **Evidence:** [Test report](docs/TEST_REPORT.md) · [Security review](docs/SECURITY_REVIEW.md) · [AI evaluation](docs/AI_EVALUATION.md) · [Baseline audit](docs/BASELINE_AUDIT.md) · [Visual audit](docs/VISUAL_AUDIT.md) · [Submission checklist](docs/FINAL_SUBMISSION_CHECKLIST.md)
 
 ## What it does
 
-1. **Create** (`/`): the creator describes what they do and who they help (or gives an Instagram username plus a line about their content), and can optionally pick a niche, audience size and language (English, Hinglish or Hindi).
-2. **Generate**: one Gemini call returns structured JSON: bio, theme, 2–4 products (format, INR price plus a one-line "why this price", pitch, benefits and description). The server validates and sanitises it and applies pricing guardrails before anything reaches the browser.
-3. **Edit** (`/edit/:id`): every field is editable, with autosave and a live phone or desktop preview. AI can regenerate just the bio, one product, one price, add a product, or redo the whole store. Every AI change can be undone.
-4. **Publish**: the creator picks a link (`/s/your-name`) and can copy it, share it on WhatsApp or use the phone's share sheet. The public page is server-rendered, so it loads fast and shows a proper link preview on WhatsApp.
+1. **Describe** (`/`): two lines about what you teach and who it's for, or an Instagram username plus one line. Optional niche, audience size, language (English / Hinglish / हिंदी) and voice (friendly / expert / professional). Instagram is never scraped, and the page says so.
+2. **Generate**: one Gemini call returns structured JSON: bio, theme, 2–4 products, each with a format, an INR price, a one-line "why this price", a pitch, benefits and a description. The server validates every field, strips markup, rejects duplicate or single-format sets, and keeps each price inside its format's band, snapped to familiar Indian price points. Vague input gets one clarifying question.
+3. **Edit** (`/edit/:id`): every field is editable with autosave, and each price shows the typical range for its format. AI can regenerate the bio, one product, one price, add a product, or redo the whole store; every AI change can be undone, and full rewrites ask first. **Where buyers go**: WhatsApp number, Instagram, website, and an optional payment link per product.
+4. **Publish**: pick `/s/your-name` and share via copy, WhatsApp or the phone's share sheet. The public page is server-rendered with three genuinely different themes. Its buttons go to the payment link, then a pre-filled WhatsApp enquiry, then Instagram, then the website. There's no fake checkout and no dead ends.
+5. **Measure** (`/admin`, token-gated): first-session publishing rate, median time to publish, generation success, material-edit rate, views and CTA clicks, all from privacy-safe events.
 
-## Tech stack (and why it's this small)
+## Architecture
 
 | Layer | Choice |
 |---|---|
-| Frontend | Plain HTML, CSS and ES modules, no build step |
-| API | Vercel Node serverless functions in `/api` |
-| AI | Google Gemini REST API with structured JSON output (`responseSchema`) and server-side validation |
-| Storage | Supabase Postgres via its REST API, called only from the server with the service-role key |
-| Hosting | Vercel |
+| Frontend | Plain HTML, CSS and ES modules, no build step (`public/`) |
+| API | Vercel Node serverless functions (`api/`) |
+| AI | Gemini REST: structured output (`responseSchema`), server-side validation, retries, fallback model on overload |
+| Storage | Supabase Postgres via REST, server-only service key, RLS on with no policies |
+| Analytics | `events` table: anonymous session ids, de-duplicated, whitelisted metadata |
+| Hosting | Vercel (CSP + security headers in `vercel.json`) |
 
-The project has **zero npm dependencies**. Nothing needs installing or building, deploys are just "push", and the shared module (`public/assets/shared.js`) runs in both the browser and the server, so the two always agree on what a valid store is. The trade-offs are in the decision doc.
+**Zero npm dependencies.** `public/assets/shared.js` (schema, validation, sanitising, pricing guardrails, link validation) runs in both the browser and the server, and `public/assets/render.js` renders both the editor preview and the public page.
 
 ```
-api/            serverless endpoints (generate, stores, store, regenerate, publish, page, health)
-lib/            server code: Gemini client, prompts, AI ops, Supabase/file storage, slugs, HTTP helpers
-public/         static app: index.html (create), edit.html (editor), assets/*
-  assets/shared.js   schema, validation, sanitising, pricing guardrails, input checks (browser + server)
-  assets/render.js   storefront renderer (public page + editor preview use the same code)
-supabase/schema.sql  tables + RLS
-tests/          API tests (node:test), browser e2e (Playwright), test-only fake Gemini
-dev-server.js   local server that mimics Vercel routing
+api/            generate · stores · store · regenerate · publish · page (/s/:slug) · events · metrics · health
+lib/            llm (Gemini client) · prompts · ai · db (Supabase / local file) · events · metrics · http · slug · stores
+public/         index.html (create) · edit.html (editor) · admin.html (metrics) · assets/*
+supabase/       schema.sql (idempotent) · metrics.sql (reporting queries)
+tests/          api.test.js (39) · e2e.cjs (49 browser checks) · fake-gemini.js (test-only)
+evals/          cases.json (30 creators) · results-*.json      scripts/  eval.mjs · eval-score.mjs
+docs/           audit, security, test report, AI evaluation, visual audit, checklist
 ```
 
-## Run locally
+## Setup
 
-Requires Node 20+.
+Requires Node 20+. No `npm install` is needed to run the app.
 
 ```bash
-cp .env.example .env        # add your GEMINI_API_KEY
-npm run dev                 # http://localhost:3000
+cp .env.example .env      # add GEMINI_API_KEY (and Supabase vars for production-like runs)
+npm run dev               # http://localhost:3000 (uses .data/db.json when SUPABASE_URL is empty)
 ```
 
-Without `SUPABASE_URL`, local dev stores data in `.data/db.json`. That's fine for trying it out, and it's refused on Vercel.
+| Variable | Required | Notes |
+|---|---|---|
+| `GEMINI_API_KEY` | yes | <https://aistudio.google.com/apikey> |
+| `SUPABASE_URL` | prod | `https://<ref>.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | prod | legacy `service_role` JWT **or** new `sb_secret_…` key. Server only. |
+| `PUBLIC_BASE_URL` | recommended | canonical URL for share links, e.g. `https://creatorlaunch-ai1.vercel.app` |
+| `GEMINI_MODEL` | no | default `gemini-3.5-flash-lite` |
+| `GEMINI_FALLBACK_MODEL` | no | default `gemini-3.6-flash`; `none` disables |
+| `METRICS_TOKEN` | no | ≥16 random chars; enables `/api/metrics` and `/admin` |
+| `LLM_TIMEOUT_MS` | no | per-attempt timeout, default 25000 |
 
-## Deploy (about 10 minutes)
+**Supabase:** create a project, open **SQL Editor**, run `supabase/schema.sql`. It is idempotent, so re-run it after upgrading. Reporting queries are in `supabase/metrics.sql`.
 
-1. **Gemini key:** create one at <https://aistudio.google.com/apikey>.
-2. **Supabase:** create a project, open **SQL Editor**, paste and run `supabase/schema.sql`. Copy the **Project URL** and the **service_role** key (Project Settings → API).
-3. **GitHub:** push this folder to a new repository.
-4. **Vercel:** *Add New → Project*, import the repo, set Framework Preset to **Other**, leave the build command empty. Under *Environment Variables*, add:
-
-   | Name | Value |
-   |---|---|
-   | `GEMINI_API_KEY` | your Gemini key |
-   | `SUPABASE_URL` | `https://xxxx.supabase.co` |
-   | `SUPABASE_SERVICE_ROLE_KEY` | service_role key |
-   | `GEMINI_MODEL` | optional, defaults to `gemini-3.5-flash-lite` |
-   | `PUBLIC_BASE_URL` | optional, e.g. `https://creatorlaunch.vercel.app` |
-
-5. Deploy, then open `/api/health`. It should return `"ok": true` and `"storage": "supabase"`.
-6. On your phone: create a store, publish it, and open the link in a private tab.
+**Deploy (Vercel):** import the repo, set Framework Preset to **Other**, leave the build command empty, add the variables above, deploy, then check `/api/health` returns `"ok": true, "storage": "supabase"`.
 
 ## Tests
 
 ```bash
-npm test                    # 27 API tests: real handlers + storage, fake LLM for failure cases
-# Browser e2e on phone + desktop viewports (screenshots in tests/screens/):
-npm i --no-save playwright && npx playwright install chromium && node tests/e2e.cjs
+npm test                  # 39 API tests: real handlers + storage; fake LLM only for forced failures
+npm i --no-save playwright && npx playwright install chromium
+node tests/e2e.cjs        # 49 browser checks: full journey, edge cases, 3 themes × 7 viewports
+BASE_URL=https://creatorlaunch-ai1.vercel.app node scripts/eval.mjs   # 30-case real-model evaluation
 ```
 
-The fake LLM (`tests/fake-gemini.js`) exists only so the tests can force timeouts, 429s, 5xx errors, malformed JSON, schema-breaking output and vague input. The app itself never uses it: production calls Gemini, and if `GEMINI_API_KEY` is missing it says so instead of making anything up.
+`tests/fake-gemini.js` exists only so tests can force timeouts, 429/503, malformed or empty output, schema rejections and duplicate products. The app itself never uses it. Real-model behaviour is covered by the live smoke checks and the evaluation (see the docs).
 
-Covered: empty, one-word, gibberish, Hinglish and Hindi input; invalid Instagram usernames; vague input leading to a clarifying question; AI timeout, rate limit, 5xx, malformed JSON and a rejected schema; pricing guardrails; section-only regeneration; edit-key access control; invalid edits never overwriting saved data; slug collisions, reserved and custom slugs; idempotent publish; unpublish and republish; XSS stripping; the public page reflecting saved edits; no horizontal scroll on a phone.
+## Security and limitations (short version, full detail in docs/SECURITY_REVIEW.md)
 
-## API
-
-| Method | Path | Purpose |
-|---|---|---|
-| POST | `/api/generate` | creator input → validated storefront JSON (not saved yet) |
-| POST | `/api/stores` | save an accepted draft → `{ id, editKey }` |
-| GET/PATCH | `/api/stores/:id` | load / autosave (header `x-edit-key`) |
-| POST | `/api/regenerate` | `target`: `all`, `bio`, `product`, `price` or `add_product`; returns only that section |
-| POST/DELETE | `/api/stores/:id/publish` | publish (idempotent, picks a unique slug) / unpublish |
-| GET | `/s/:slug` | public storefront (server-rendered) |
-| GET | `/api/health` | config status (no secrets) |
-
-## Security notes and known limitations
-
-- **No accounts in v1.** Whoever has the private edit link (store UUID plus a 192-bit key, stored only as a SHA-256 hash) can edit. Losing the link means losing edit access. Phone OTP login is the first thing to add.
-- **Rate limiting is per-instance and in-memory:** good enough to stop accidents and casual abuse, not a determined attacker. The upgrade is a shared store such as Upstash.
-- **Instagram profiles are not read.** Instagram blocks automated access and scraping is against its terms. The username is used for the store link and an Instagram button, and the AI is told explicitly that it has no profile data, so it never invents follower counts or posts.
-- **No checkout.** The buy button explains this (and points buyers to the creator's Instagram when there is one), so it is never a dead end.
-- **AI prices are starting suggestions** inside fixed per-format bands. They are not market data, and the UI labels them that way.
-- Published pages are CDN-cached for 30 seconds, so edits appear on the live page within about 30 seconds.
+- **No accounts:** the private edit link (UUID + 192-bit key, stored hashed, kept in the URL fragment) is the credential. Lose it and you lose edit access. Phone OTP login is next on the roadmap.
+- **No checkout:** buttons go to the creator's own payment link, WhatsApp, Instagram or website, and the UI never claims payment processing.
+- **Instagram is not read:** the username is used for links only, and the AI is told it has no profile data.
+- **AI prices are suggestions** inside fixed per-format bands, not market or SuperProfile sales data.
+- **Rate limits** are shared across instances via Postgres (fixed windows), falling back to per-instance memory if the database is unreachable.
+- **Public pages are CDN-cached for 30s**, so edits appear live within about 30 seconds.
+- **The 14-day first-sale guardrail metric** can't be computed without order data and is reported as such.
 
 ## How AI coding tools were used
 
-See the "How I built it" section of the decision doc.
+Product decisions (scope, input strategy, pricing guardrails, regeneration model, metrics) are mine. Claude was the coding agent for implementation and tests; I reviewed and ran everything. Details are in the decision doc.

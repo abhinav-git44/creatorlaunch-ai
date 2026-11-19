@@ -52,6 +52,8 @@ export function startFakeGemini(port = 0) {
 
     if (prompt.includes('FAKE_TIMEOUT')) { await new Promise((r) => setTimeout(r, 5000)); }
     if (prompt.includes('FAKE_429')) { res.writeHead(429); return res.end('{}'); }
+    if (prompt.includes('FAKE_503_PRIMARY') && /gemini-3\.5-flash-lite/.test(req.url)) { res.writeHead(503); return res.end('{"error":{"message":"The model is overloaded."}}'); }
+    if (prompt.includes('FAKE_503_ALL')) { res.writeHead(503); return res.end('{}'); }
     if (prompt.includes('FAKE_500_ONCE') && once('500')) { res.writeHead(500); return res.end('{}'); }
     if (prompt.includes('FAKE_BADJSON_ONCE') && once('bad')) {
       res.writeHead(200, { 'content-type': 'application/json' });

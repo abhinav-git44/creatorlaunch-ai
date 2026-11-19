@@ -156,6 +156,18 @@ test('if the model rejects the response schema, we retry without it and still va
   assert.equal(r.json.content.products[0].priceInr, 499);
 });
 
+test('when the primary model is overloaded (503) we fall back to the second model and succeed', async () => {
+  const r = await call('/api/generate', { method: 'POST', body: { input: input({ description: 'I teach yoga to office workers FAKE_503_PRIMARY' }) } });
+  assert.equal(r.status, 200, r.text);
+});
+
+test('if every model is overloaded, retries are exhausted and the creator gets a calm retry message', async () => {
+  const r = await call('/api/generate', { method: 'POST', body: { input: input({ description: 'I teach yoga to office workers FAKE_503_ALL' }) } });
+  assert.equal(r.status, 502);
+  assert.equal(r.json.error.code, 'unavailable');
+  assert.equal(r.json.error.retryable, true);
+});
+
 test('AI rate limit maps to 429 with a calm message', async () => {
   const r = await call('/api/generate', { method: 'POST', body: { input: input({ description: 'I teach yoga to office workers FAKE_429' }) } });
   assert.equal(r.status, 429);

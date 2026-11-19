@@ -32,7 +32,7 @@
     <div id="ig-block" hidden>
       <div class="field" id="f-handle">
         <label for="handle">Instagram username</label>
-        <div class="prefix-input"><span>@</span><input id="handle" name="handle" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="fitwithriya" maxlength="60"></div>
+        <div class="prefix-input"><span>@</span><input id="handle" name="handle" type="text" inputmode="text" enterkeyhint="next" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="fitwithriya" maxlength="60"></div>
         <div class="field-error" id="e-handle" hidden></div>
       </div>
       <div class="note"><span aria-hidden="true">ℹ️</span><span><strong>We won't read your Instagram profile.</strong>Instagram blocks automated access, so we use your username for your store link and an Instagram button. Tell us what you post about below, which works just as well.</span></div>
@@ -40,13 +40,14 @@
 
     <div class="field" id="f-name">
       <label for="name">Your name <span class="optional" id="name-optional" hidden>(optional)</span></label>
-      <input id="name" name="name" type="text" autocomplete="name" placeholder="Riya Sharma" maxlength="60">
+      <input id="name" name="name" type="text" autocomplete="name" autocapitalize="words" enterkeyhint="next" placeholder="Riya Sharma" maxlength="60">
       <div class="field-error" id="e-name" hidden></div>
     </div>
 
     <div class="field" id="f-description">
       <label for="description"><span id="desc-label">What do you do, and who do you help?</span> <span class="counter" id="counter">0/600</span></label>
-      <textarea id="description" name="description" rows="4" maxlength="600" placeholder="e.g. I'm a certified yoga teacher. I post 15-minute routines for working women with back pain. Most of my followers are 25–40 and work from home."></textarea>
+      <textarea id="description" name="description" rows="4" maxlength="600" autocapitalize="sentences" aria-describedby="desc-hint e-description" placeholder="e.g. I'm a certified yoga teacher. I post 15-minute routines for working women with back pain. Most of my followers are 25–40 and work from home."></textarea>
+      <p class="hint" id="desc-hint">Two lines is enough: <b>what you teach or make</b> + <b>who it's for</b>. Hinglish is fine.</p>
       <div class="examples"><span class="label-sm">Try an example:</span>
         <button type="button" class="link-btn" data-example="fitness">Fitness coach</button>
         <button type="button" class="link-btn" data-example="finance">Finance educator</button>
@@ -74,6 +75,15 @@
       </div>
     </div>
 
+    <div class="field">
+      <span class="label">Voice</span>
+      <div class="segmented" id="tone" role="group" aria-label="Voice" style="margin-bottom:0">
+        <button type="button" data-tone="friendly" aria-pressed="true">Friendly</button>
+        <button type="button" data-tone="expert" aria-pressed="false">Expert</button>
+        <button type="button" data-tone="professional" aria-pressed="false">Professional</button>
+      </div>
+    </div>
+
     <div class="note error" id="form-error" role="alert" hidden></div>
     <button class="btn btn-primary btn-block" id="submit" type="submit">Generate my store</button>
     <p class="hint" style="text-align:center">Free · No sign-up · You can edit everything before it goes live</p>
@@ -84,11 +94,12 @@
     <div class="loader" aria-hidden="true"></div>
     <h2>Building your store…</h2>
     <p>This usually takes 10–20 seconds.</p>
+    <p class="hint" style="margin:-8px 0 14px">One AI pass works out, together:</p>
     <ul class="making">
-      <li>Finding 2–4 things you can sell</li>
-      <li>Pricing them for Indian buyers</li>
-      <li>Writing your bio and product pages</li>
-      <li>Picking a look that suits your niche</li>
+      <li>What you can sell: 2–4 ideas from your expertise</li>
+      <li>What to charge: ₹ prices for your audience, with reasons</li>
+      <li>What to say: your bio and product pages</li>
+      <li>How it looks: a theme that suits your niche</li>
     </ul>
     <p class="elapsed" id="elapsed"></p>
     <button type="button" class="btn btn-secondary" id="cancel">Cancel</button>

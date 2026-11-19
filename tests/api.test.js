@@ -26,6 +26,7 @@ before(async () => {
       LLM_TIMEOUT_MS: '1500',
       DATA_DIR: dataDir,
       DEV_LOG: '0',
+      METRICS_TOKEN: 'test-metrics-token-1234567890',
       SUPABASE_URL: '',
       VERCEL: '',
     },
@@ -38,15 +39,16 @@ before(async () => {
 });
 after(() => { server?.kill(); fake?.close(); rmSync(dataDir, { recursive: true, force: true }); });
 
-async function call(p, { method = 'GET', body, key, ip } = {}) {
+async function call(p, { method = 'GET', body, key, ip, session, headers = {}, redirect } = {}) {
   const res = await fetch(BASE + p, {
     method,
-    headers: { 'content-type': 'application/json', 'x-forwarded-for': ip || `10.0.0.${ipCounter++}`, ...(key ? { 'x-edit-key': key } : {}) },
+    redirect: redirect || 'follow',
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': ip || `10.0.0.${ipCounter++}`, ...(key ? { 'x-edit-key': key } : {}), ...(session ? { 'x-session-id': session } : {}), ...headers },
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
   let json = null; try { json = JSON.parse(text); } catch { /* html */ }
-  return { status: res.status, json, text };
+  return { status: res.status, json, text, headers: res.headers };
 }
 
 const input = (over = {}) => ({
@@ -54,10 +56,10 @@ const input = (over = {}) => ({
   description: 'I teach 15 minute home workouts to working women with back pain.', ...over,
 });
 
-async function makeStore(over) {
-  const g = await call('/api/generate', { method: 'POST', body: { input: input(over) } });
+async function makeStore(over, session) {
+  const g = await call('/api/generate', { method: 'POST', body: { input: input(over) }, session });
   assert.equal(g.status, 200, g.text);
-  const s = await call('/api/stores', { method: 'POST', body: { input: g.json.input, content: g.json.content } });
+  const s = await call('/api/stores', { method: 'POST', body: { input: g.json.input, content: g.json.content }, session });
   assert.equal(s.status, 201, s.text);
   return { ...s.json, content: g.json.content };
 }
@@ -321,4 +323,139 @@ test('static pages and clean URLs are served', async () => {
   assert.match(edit.text, /editor\.js/);
   assert.equal((await call('/api/nope')).status, 404);
   assert.equal((await call('/api/generate')).status, 405);
+});
+
+// ------------------------------------------------------------------ v2: AI validation additions
+
+test('empty model output is treated as a failure, never as an empty store', async () => {
+  const r = await call('/api/generate', { method: 'POST', body: { input: input({ description: 'I teach yoga to office workers FAKE_EMPTY' }) } });
+  assert.equal(r.status, 502);
+  assert.equal(r.json.error.code, 'bad_output');
+});
+
+test('AI output with duplicate product ideas is rejected (retried, then a friendly error)', async () => {
+  const r = await call('/api/generate', { method: 'POST', body: { input: input({ description: 'I teach yoga to office workers FAKE_DUP' }) } });
+  assert.equal(r.status, 502);
+});
+
+test('generated products carry a hidden AI snapshot and the handle becomes the Instagram destination', async () => {
+  const r = await call('/api/generate', { method: 'POST', body: { input: input({ mode: 'instagram', handle: 'riya.fit' }) } });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.content.links.instagram, 'riya.fit');
+  assert.equal(r.json.content.products[0].ai.priceInr, 499);
+  assert.equal(r.json.content.tone, 'friendly');
+});
+
+// ------------------------------------------------------------------ v2: buyer destinations (CTA)
+
+test('payment links and WhatsApp numbers are validated; unsafe links are refused', async () => {
+  const { id, editKey, content } = await makeStore();
+  for (const bad of ['javascript:alert(1)', 'https://user:pass@evil.com', 'http://localhost:3000/x', 'not a url at all']) {
+    const c = structuredClone(content);
+    c.products[0].buyUrl = bad;
+    const r = await call(`/api/stores/${id}`, { method: 'PATCH', key: editKey, body: { content: c } });
+    assert.equal(r.status, 422, bad);
+  }
+  const badWa = structuredClone(content);
+  badWa.links = { whatsapp: '12345' };
+  assert.equal((await call(`/api/stores/${id}`, { method: 'PATCH', key: editKey, body: { content: badWa } })).status, 422);
+
+  const good = structuredClone(content);
+  good.products[0].buyUrl = 'rzp.io/l/yoga-guide';
+  good.links = { whatsapp: '+91 98765 43210', instagram: '@Riya.Fit', website: 'https://riya.example.com' };
+  const ok = await call(`/api/stores/${id}`, { method: 'PATCH', key: editKey, body: { content: good } });
+  assert.equal(ok.status, 200, ok.text);
+  assert.equal(ok.json.content.products[0].buyUrl, 'https://rzp.io/l/yoga-guide');
+  assert.deepEqual(ok.json.content.links, { whatsapp: '919876543210', instagram: 'riya.fit', website: 'https://riya.example.com/' });
+});
+
+test('public page routes each button to a real destination and opens external links safely', async () => {
+  const { id, editKey, content } = await makeStore({ name: 'Cta Tester' });
+  content.products[0].buyUrl = 'https://rzp.io/l/abc';
+  content.links = { whatsapp: '9876543210', instagram: '', website: '' };
+  await call(`/api/stores/${id}/publish`, { method: 'POST', key: editKey, body: { content } });
+  const page = (await call('/s/cta-tester')).text;
+  assert.match(page, /href="https:\/\/rzp\.io\/l\/abc" target="_blank" rel="noopener noreferrer nofollow" data-cta="payment_link"/);
+  assert.match(page, /href="https:\/\/wa\.me\/919876543210\?text=[^"]+"[^>]*data-cta="whatsapp"/);
+  assert.ok(!/data-cta="info"/.test(page), 'no dead-end buttons when a destination exists');
+  assert.match(page, /<link rel="canonical" href="http:\/\/localhost:\d+\/s\/cta-tester">/);
+  assert.match(page, /<meta property="og:title"/);
+  assert.match(page, /<meta name="twitter:card" content="summary">/);
+  assert.match(page, /<script type="module" src="\/assets\/store\.js"><\/script>/);
+  assert.ok(!/<script>/.test(page), 'no inline scripts (CSP-compatible)');
+});
+
+// ------------------------------------------------------------------ v2: security headers + routing
+
+test('security headers: strict CSP on public pages and the app; slugs are case-insensitive', async () => {
+  const { id, editKey } = await makeStore({ name: 'Header Check' });
+  await call(`/api/stores/${id}/publish`, { method: 'POST', key: editKey, body: {} });
+  const pub = await call('/s/header-check');
+  assert.match(pub.headers.get('content-security-policy'), /script-src 'self'/);
+  assert.match(pub.headers.get('content-security-policy'), /default-src 'none'/);
+  const app = await call('/');
+  assert.match(app.headers.get('content-security-policy'), /frame-ancestors 'self'/);
+  assert.equal(app.headers.get('x-content-type-options'), 'nosniff');
+  const upper = await call('/s/Header-Check', { redirect: 'manual' });
+  assert.equal(upper.status, 301);
+  assert.equal(upper.headers.get('location'), '/s/header-check');
+});
+
+// ------------------------------------------------------------------ v2: analytics + metrics
+
+const sid = () => crypto.randomUUID();
+
+test('events need a session, are de-duplicated, and store events need the edit key', async () => {
+  const s = sid();
+  assert.equal((await call('/api/events', { method: 'POST', body: { events: [{ id: sid(), name: 'onboarding_started' }] } })).status, 400, 'no session → rejected');
+  const ev = { id: sid(), name: 'onboarding_started', meta: { mode: 'describe', secret: 'drop-me' } };
+  const a = await call('/api/events', { method: 'POST', session: s, body: { events: [ev, ev, { id: sid(), name: 'not_a_real_event' }] } });
+  assert.equal(a.status, 202);
+  assert.equal(a.json.accepted, 2, 'unknown event names are dropped');
+  const { id } = await makeStore();
+  const noKey = await call('/api/events', { method: 'POST', session: s, body: { events: [{ id: sid(), name: 'store_previewed', storeId: id }] } });
+  assert.equal(noKey.status, 202);
+});
+
+test('metrics endpoint is locked down', async () => {
+  assert.equal((await call('/api/metrics')).status, 401);
+  assert.equal((await call('/api/metrics', { headers: { 'x-admin-token': 'wrong-token-wrong-token-xx' } })).status, 401);
+});
+
+test('funnel metrics follow the documented definitions (first session publish, time to publish, material edits)', async () => {
+  const before = (await call('/api/metrics', { headers: { 'x-admin-token': 'test-metrics-token-1234567890' } })).json;
+  const s1 = sid(); const s2 = sid();
+  // Session 1: starts, generates, publishes in the same session, editing 1 AI product materially.
+  await call('/api/events', { method: 'POST', session: s1, body: { events: [{ id: sid(), name: 'onboarding_started' }] } });
+  const st = await makeStore({ name: 'Metric One' }, s1);
+  const c = structuredClone(st.content);
+  c.products[0].title = 'Totally different title I wrote';
+  await call(`/api/stores/${st.id}/publish`, { method: 'POST', key: st.editKey, session: s1, body: { content: c } });
+  await call(`/api/stores/${st.id}/publish`, { method: 'POST', key: st.editKey, session: s1, body: { content: c } }); // repeat click
+  // Session 2: starts but never publishes.
+  await call('/api/events', { method: 'POST', session: s2, body: { events: [{ id: sid(), name: 'onboarding_started' }, { id: sid(), name: 'onboarding_started' }] } });
+  // Public views: same session twice the same day counts once.
+  const v = sid();
+  for (let i = 0; i < 2; i++) await call('/api/events', { method: 'POST', session: v, body: { events: [{ id: sid(), name: 'storefront_viewed', slug: 'metric-one' }] } });
+  await call('/api/events', { method: 'POST', session: v, body: { events: [{ id: sid(), name: 'product_cta_clicked', slug: 'metric-one', meta: { destination: 'instagram' } }] } });
+
+  const after = (await call('/api/metrics', { headers: { 'x-admin-token': 'test-metrics-token-1234567890' } })).json;
+  const d = (k) => after.counts[k] - before.counts[k];
+  assert.equal(d('onboardingStarts'), 2, 'two eligible sessions (duplicate start in s2 ignored)');
+  assert.equal(d('firstPublishes'), 1, 'repeat publish not double-counted');
+  assert.equal(d('storefrontViews'), 1, 'view de-duplicated per session per day');
+  assert.equal(d('productCtaClicks'), 1);
+  assert.ok(after.rates.medianMinutesToFirstPublish !== null);
+  assert.ok(after.rates.aiMaterialEditRatePct > 0);
+  assert.match(after.notCalculated.fourteenDayFirstSaleRate, /order/);
+  assert.match(after.dataSource, /no demo/);
+});
+
+test('full regeneration keeps the creator\'s contact links', async () => {
+  const { id, editKey, content } = await makeStore();
+  content.links = { whatsapp: '9876543210' };
+  await call(`/api/stores/${id}`, { method: 'PATCH', key: editKey, body: { content } });
+  const r = await call('/api/regenerate', { method: 'POST', key: editKey, body: { id, target: 'all', content } });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.content.links.whatsapp, '919876543210');
 });

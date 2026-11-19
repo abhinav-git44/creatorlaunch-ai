@@ -1,5 +1,6 @@
-import { api, ApiError, toast, openSheet, askInstruction, saveEditKey, getEditKey, copyText } from './ui.js';
-import { FORMATS, THEMES, ACCENTS, LANGUAGES, LIMITS, MAX_PRICE, escapeHtml as e, formatInr } from './shared.js';
+import { api, ApiError, toast, openSheet, askInstruction, confirmSheet, saveEditKey, getEditKey, copyText } from './ui.js';
+import { FORMATS, THEMES, ACCENTS, LANGUAGES, TONES, LIMITS, MAX_PRICE, escapeHtml as e, formatInr, typicalRange, cleanUrl, cleanWhatsapp, normaliseLinks } from './shared.js';
+import { track, setEditKey } from './analytics.js';
 import { renderStorefront } from './render.js';
 
 const $ = (s, root = document) => root.querySelector(s);
@@ -11,6 +12,7 @@ const id = location.pathname.split('/').filter(Boolean)[1] || '';
 const hashKey = new URLSearchParams(location.hash.slice(1)).get('k');
 const key = hashKey || getEditKey(id);
 if (hashKey) saveEditKey(id, hashKey);
+if (key) setEditKey(key);
 
 let store = null; // { id, status, slug, input, content, ... }
 let content = null; // working copy the creator edits
@@ -34,6 +36,8 @@ async function load() {
     return showFatal('We couldn\'t load your store.', err.message, true);
   }
   content = clone(store.content);
+  content.links = content.links || { whatsapp: '', instagram: store.input?.handle || '', website: '' };
+  content.tone = content.tone || store.input?.tone || 'friendly';
   savedJson = JSON.stringify(content);
   app.setAttribute('aria-busy', 'false');
   $('#bottom-bar').hidden = false;
@@ -114,6 +118,7 @@ function productCard(p, i) {
         <div class="prefix-input"><span>₹</span><input id="pr-${e(p.id)}" type="number" inputmode="numeric" min="0" max="${MAX_PRICE}" step="1" data-pf="priceInr" value="${e(p.priceInr)}"></div>
         <button type="button" class="btn btn-secondary" data-action="regen-price">↻ Suggest</button>
       </div>
+      <div class="hint">Typical for this format: ${e(typicalRange(p.format))}. It's your call.</div>
       ${p.priceRationale ? `<div class="rationale"><b>Why ${e(formatInr(p.priceInr, p.format))}?</b> ${e(p.priceRationale)} <span class="ai-tag">AI suggestion</span></div>` : ''}
     </div>
     <div class="field"><label for="sd-${e(p.id)}">One-line pitch</label><textarea id="sd-${e(p.id)}" data-pf="shortDescription" rows="2" maxlength="${LIMITS.shortDescription}">${e(p.shortDescription)}</textarea></div>
@@ -121,6 +126,7 @@ function productCard(p, i) {
     <details class="more"><summary>More details</summary>
       <div class="field" style="margin-top:10px"><label for="ds-${e(p.id)}">Full description</label><textarea id="ds-${e(p.id)}" data-pf="description" rows="4" maxlength="${LIMITS.description}">${e(p.description)}</textarea></div>
       <div class="field"><label for="cta-${e(p.id)}">Button text</label><input id="cta-${e(p.id)}" type="text" data-pf="ctaLabel" maxlength="${LIMITS.ctaLabel}" value="${e(p.ctaLabel)}"></div>
+      <div class="field"><label for="buy-${e(p.id)}">Payment link <span class="optional">(optional)</span></label><input id="buy-${e(p.id)}" type="url" inputmode="url" autocapitalize="off" spellcheck="false" data-pf="buyUrl" maxlength="${LIMITS.url}" placeholder="https://rzp.io/l/… or your SuperProfile link" value="${e(p.buyUrl || '')}"><div class="hint">If set, the button opens this page. Otherwise buyers are sent to your WhatsApp or Instagram.</div></div>
     </details>
   </article>`;
 }
@@ -132,6 +138,17 @@ function productsCard() {
     <p class="hint" style="margin:-6px 0 14px">Prices are AI starting points for Indian buyers. Change anything.</p>
     ${content.products.map(productCard).join('')}
     ${n < 4 ? `<button type="button" class="btn btn-secondary btn-block" style="margin-top:14px" data-action="add-product" ${busy.has('add') ? 'disabled' : ''}>${busy.has('add') ? '<span class="spin"></span>Thinking of another idea…' : '+ Suggest another product'}</button>` : ''}
+  </section>`;
+}
+
+function linksCard() {
+  const l = content.links || {};
+  return `<section class="card" id="sec-links">
+    <div class="card-head"><h2>Where buyers go</h2></div>
+    <p class="hint" style="margin:-6px 0 14px">There's no checkout in this prototype, so tell us how buyers should reach you. Buttons use a product's payment link first, then WhatsApp, then Instagram.</p>
+    <div class="field"><label for="l-whatsapp">WhatsApp number <span class="optional">(recommended)</span></label><input id="l-whatsapp" type="tel" inputmode="tel" autocomplete="tel" data-link="whatsapp" maxlength="20" placeholder="98765 43210" value="${e(l.whatsapp ? `+${l.whatsapp}` : '')}"></div>
+    <div class="field"><label for="l-instagram">Instagram username</label><div class="prefix-input"><span>@</span><input id="l-instagram" type="text" autocapitalize="off" spellcheck="false" data-link="instagram" maxlength="40" value="${e(l.instagram || '')}"></div></div>
+    <div class="field" style="margin-bottom:0"><label for="l-website">Website or other link <span class="optional">(optional)</span></label><input id="l-website" type="url" inputmode="url" autocapitalize="off" spellcheck="false" data-link="website" maxlength="${LIMITS.url}" placeholder="https://" value="${e(l.website || '')}"></div>
   </section>`;
 }
 
@@ -147,7 +164,11 @@ function lookCard() {
     <div class="field" style="margin-top:18px;margin-bottom:0">
       <span class="label">Language</span>
       <div class="segmented" style="margin-bottom:8px" role="group" aria-label="Language">${langs}</div>
-      <p class="hint" style="margin-top:0">Changing this rewrites your whole store in that language (you can undo).</p>
+    </div>
+    <div class="field" style="margin-top:14px;margin-bottom:0">
+      <span class="label">Voice</span>
+      <div class="segmented" style="margin-bottom:8px" role="group" aria-label="Voice">${Object.entries(TONES).map(([k, label]) => `<button type="button" data-tone="${k}" aria-pressed="${content.tone === k}">${e(label)}</button>`).join('')}</div>
+      <p class="hint" style="margin-top:0">Changing language or voice rewrites your whole store (we'll ask first, and you can undo).</p>
     </div>
   </section>`;
 }
@@ -162,7 +183,7 @@ function startOverCard() {
 
 function renderAll() {
   const active = document.activeElement?.id;
-  app.innerHTML = publishedBar() + profileCard() + productsCard() + lookCard() + startOverCard();
+  app.innerHTML = publishedBar() + profileCard() + productsCard() + linksCard() + lookCard() + startOverCard();
   if (active) document.getElementById(active)?.focus();
   validateLocal();
 }
@@ -178,8 +199,20 @@ function validateLocal() {
     mark(document.querySelector(`[data-bind="creator.${k}"]`), bad);
     if (bad) problems.push(`Add your ${label}`);
   }
+  const l = content.links || {};
+  for (const [k, fn, label] of [['whatsapp', (v) => cleanWhatsapp(v), 'WhatsApp number'], ['website', (v) => cleanUrl(v, 'Website link'), 'Website link']]) {
+    let bad = false;
+    try { fn(l[k]); } catch (err) { bad = true; problems.push(err.message || `Check your ${label}`); }
+    mark(document.querySelector(`[data-link="${k}"]`), bad);
+  }
+  const igBad = Boolean(l.instagram) && !/^(?!.*\.\.)(?!\.)(?!.*\.$)[a-z0-9._]{1,30}$/.test(String(l.instagram).replace(/^@/, '').toLowerCase());
+  mark(document.querySelector('[data-link="instagram"]'), igBad);
+  if (igBad) problems.push('Instagram username can only use letters, numbers, dots and underscores');
   content.products.forEach((p, i) => {
     const card = document.querySelector(`[data-pid="${CSS.escape(p.id)}"]`);
+    let badUrl = false;
+    try { cleanUrl(p.buyUrl, `Product ${i + 1} payment link`); } catch (err) { badUrl = true; problems.push(err.message); }
+    mark(card?.querySelector('[data-pf="buyUrl"]'), badUrl);
     const badTitle = !String(p.title || '').trim();
     const badShort = !String(p.shortDescription || '').trim();
     const price = Number(p.priceInr);
@@ -220,10 +253,12 @@ async function save() {
   if (validateLocal().length) { setStatus(); return false; }
   saving = true; setStatus();
   const snapshot = JSON.stringify(content);
+  const before = savedJson ? JSON.parse(savedJson) : null;
   try {
     await api(`/api/stores/${encodeURIComponent(id)}`, { method: 'PATCH', body: { content: JSON.parse(snapshot) }, key });
     savedJson = snapshot;
     saveFailed = false;
+    trackEdits(before, JSON.parse(snapshot));
     return true;
   } catch (err) {
     saveFailed = true;
@@ -233,6 +268,29 @@ async function save() {
     saving = false;
     setStatus();
     if (dirty() && !saveFailed) scheduleSave();
+  }
+}
+
+// Analytics: which areas changed (no content is sent), and price changes for the pricing metric.
+let lastEditEvent = 0;
+function trackEdits(before, after) {
+  if (!before) return;
+  const fields = [];
+  if (JSON.stringify(before.creator) !== JSON.stringify(after.creator)) fields.push('profile');
+  if (JSON.stringify(before.links) !== JSON.stringify(after.links)) fields.push('links');
+  if (JSON.stringify(before.theme) !== JSON.stringify(after.theme)) fields.push('theme');
+  const prevById = Object.fromEntries((before.products || []).map((p) => [p.id, p]));
+  for (const p of after.products) {
+    const q = prevById[p.id];
+    if (!q) continue;
+    if (Number(q.priceInr) !== Number(p.priceInr)) track('price_changed', { storeId: id, meta: { format: p.format, from: Number(q.priceInr), to: Number(p.priceInr) } });
+    if (q.title !== p.title || q.shortDescription !== p.shortDescription || q.description !== p.description || JSON.stringify(q.benefits) !== JSON.stringify(p.benefits) || q.buyUrl !== p.buyUrl) {
+      if (!fields.includes('products')) fields.push('products');
+    }
+  }
+  if (fields.length && Date.now() - lastEditEvent > 60000) {
+    lastEditEvent = Date.now();
+    track('store_edited', { storeId: id, meta: { fields } });
   }
 }
 
@@ -249,7 +307,10 @@ function updatePreview(now = false) {
     const frames = [$('#preview'), $('#preview-mobile')].filter(Boolean);
     let html;
     try {
-      html = renderStorefront(content, { handle: store.input?.handle || '', slug: store.slug || '', baseUrl: location.origin, mode: 'preview', published: store.status === 'published' });
+      // Half-typed links shouldn't render as broken buttons in the preview.
+      const safeUrl = (u) => { try { return cleanUrl(u); } catch { return ''; } };
+      const view = { ...content, links: normaliseLinks(content.links, { strict: false }), products: content.products.map((p) => ({ ...p, buyUrl: safeUrl(p.buyUrl) })) };
+      html = renderStorefront(view, { handle: store.input?.handle || '', slug: store.slug || '', baseUrl: location.origin, mode: 'preview', published: store.status === 'published' });
     } catch { return; }
     for (const f of frames) {
       if (f.offsetParent === null && f.id === 'preview') continue; // desktop pane hidden on mobile
@@ -266,6 +327,7 @@ function openMobilePreview() {
   overlay.className = 'preview-overlay';
   overlay.innerHTML = `<div class="preview-head"><strong>Preview</strong><button type="button" class="btn btn-secondary" data-close>Close</button></div><iframe id="preview-mobile" title="Store preview" sandbox="allow-scripts allow-popups"></iframe>`;
   document.body.appendChild(overlay);
+  track('store_previewed', { storeId: id, meta: { device: 'phone' } });
   overlay.querySelector('[data-close]').onclick = () => overlay.remove();
   overlay.querySelector('[data-close]').focus();
   updatePreview(true);
@@ -274,6 +336,8 @@ function openMobilePreview() {
 // ---------------------------------------------------------------- edits
 
 function onEdit(target) {
+  const link = target.dataset.link;
+  if (link) content.links = { ...(content.links || {}), [link]: link === 'instagram' ? target.value.trim().replace(/^@/, '') : target.value.trim() };
   const bind = target.dataset.bind;
   if (bind) {
     const [, k] = bind.split('.');
@@ -291,14 +355,15 @@ function onEdit(target) {
       delete p.priceGuarded;
       const r = target.closest('.field').querySelector('.rationale');
       if (r) r.remove();
-    } else p[pf] = target.value;
+    } else p[pf] = pf === 'buyUrl' ? target.value.trim() : target.value;
+    if (pf === 'format') { scheduleSave(); updatePreview(); renderAll(); return; }
   }
   scheduleSave();
   updatePreview();
 }
 
 app.addEventListener('input', (ev) => {
-  if (ev.target.matches('[data-bind],[data-pf]')) onEdit(ev.target);
+  if (ev.target.matches('[data-bind],[data-pf],[data-link]')) onEdit(ev.target);
 });
 app.addEventListener('change', (ev) => {
   if (ev.target.matches('select[data-pf]')) onEdit(ev.target);
@@ -390,18 +455,18 @@ function deleteProduct(pid) {
   toast(`Deleted "${removed.title}".`, { action: () => { content.products.splice(Math.min(idx, content.products.length), 0, removed); renderAll(); updatePreview(); scheduleSave(); } });
 }
 
-async function regenAll({ language, ask = true } = {}) {
+async function regenAll({ language, tone, ask = true } = {}) {
   let instruction = '';
   if (ask) {
     instruction = await askInstruction({ title: 'Regenerate the whole store?', sub: 'This replaces your profile and all products with fresh ideas. You can undo right after.', placeholder: 'e.g. more premium, focus on beginners', confirmLabel: 'Regenerate everything' });
     if (instruction === null) return false;
   }
   return withBusy('all', async () => {
-    const res = await regenerate('all', { target: 'all', instruction, language: language || content.language });
+    const res = await regenerate('all', { target: 'all', instruction, language: language || content.language, tone: tone || content.tone });
     const prev = clone(content);
-    // Keep the creator's chosen name and look; replace the AI-written parts.
-    content = { ...res.content, creator: { ...res.content.creator, displayName: content.creator.displayName }, theme: content.theme };
-    toast(language ? `Store rewritten in ${LANGUAGES[language]}.` : 'Fresh store generated.', { action: () => { content = prev; renderAll(); updatePreview(); scheduleSave(); } });
+    // Keep the creator's chosen name, look and contact links; replace the AI-written parts.
+    content = { ...res.content, creator: { ...res.content.creator, displayName: content.creator.displayName }, theme: content.theme, links: content.links };
+    toast(language ? `Store rewritten in ${LANGUAGES[language]}.` : tone ? `Store rewritten in a ${TONES[tone].toLowerCase()} voice.` : 'Fresh store generated.', { action: () => { content = prev; renderAll(); updatePreview(); scheduleSave(); } });
   });
 }
 
@@ -467,13 +532,15 @@ function shareSheet(url) {
         <button type="button" class="btn btn-ghost" data-x>Keep editing</button>
       </div>
       <p class="hint" style="text-align:center">Tip: put this link in your Instagram bio.</p>`;
-    $('[data-copy]', sheet).onclick = async (ev) => { if (await copyText(url)) ev.target.textContent = 'Copied ✓'; };
+    $('[data-copy]', sheet).onclick = async (ev) => { track('store_link_copied', { storeId: id, meta: { where: 'share_sheet' } }); if (await copyText(url)) ev.target.textContent = 'Copied ✓'; };
     $('[data-share]', sheet)?.addEventListener('click', () => navigator.share({ title: content.creator.displayName, url }).catch(() => {}));
     $('[data-x]', sheet).onclick = close;
   });
 }
 
 async function unpublish() {
+  const yes = await confirmSheet({ title: 'Take your store offline?', sub: 'Your link will show "not live" until you publish again. Your content and link are kept.', confirmLabel: 'Unpublish' });
+  if (!yes) return;
   try {
     await api(`/api/stores/${encodeURIComponent(id)}/publish`, { method: 'DELETE', key });
     store.status = 'draft';
@@ -502,7 +569,7 @@ document.addEventListener('click', (ev) => {
       case 'publish': return publishSheet();
       case 'unpublish': return unpublish();
       case 'preview': return content && openMobilePreview();
-      case 'copy-link': return copyText(`${location.origin}/s/${store.slug}`).then((ok) => toast(ok ? 'Link copied' : 'Couldn\'t copy. Long-press the link instead.'));
+      case 'copy-link': track('store_link_copied', { storeId: id, meta: { where: 'editor' } }); return copyText(`${location.origin}/s/${store.slug}`).then((ok) => toast(ok ? 'Link copied' : 'Couldn\'t copy. Long-press the link instead.'));
       default: return undefined;
     }
   }
@@ -512,17 +579,34 @@ document.addEventListener('click', (ev) => {
   if (accent) { content.theme.accent = accent; renderAll(); updatePreview(); scheduleSave(); return undefined; }
   const lang = t.closest('#sec-look [data-lang]')?.dataset.lang;
   if (lang && lang !== content.language) {
-    const prevLang = content.language;
-    content.language = lang;
-    renderAll();
-    regenAll({ language: lang, ask: false }).then((ok) => {
-      if (!ok) { content.language = prevLang; renderAll(); scheduleSave(); }
+    confirmSheet({ title: `Rewrite your store in ${LANGUAGES[lang]}?`, sub: 'Your bio and products will be rewritten by AI. Your name, look and contact links stay. You can undo right after.', confirmLabel: 'Rewrite store' }).then((yes) => {
+      if (!yes) return;
+      const prevLang = content.language;
+      content.language = lang;
+      renderAll();
+      regenAll({ language: lang, ask: false }).then((ok) => {
+        if (!ok) { content.language = prevLang; renderAll(); scheduleSave(); }
+      });
+    });
+    return undefined;
+  }
+  const tone = t.closest('#sec-look [data-tone]')?.dataset.tone;
+  if (tone && tone !== content.tone) {
+    confirmSheet({ title: `Switch to a ${TONES[tone].toLowerCase()} voice?`, sub: 'AI rewrites your bio and products in the new voice. You can undo right after.', confirmLabel: 'Rewrite store' }).then((yes) => {
+      if (!yes) return;
+      const prevTone = content.tone;
+      content.tone = tone;
+      renderAll();
+      regenAll({ tone, ask: false }).then((ok) => {
+        if (!ok) { content.tone = prevTone; renderAll(); scheduleSave(); }
+      });
     });
     return undefined;
   }
   const device = t.closest('[data-device]')?.dataset.device;
   if (device) {
     document.querySelectorAll('[data-device]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.device === device)));
+    track('store_previewed', { storeId: id, meta: { device } });
     $('#preview-pane').classList.toggle('desktop', device === 'desktop');
   }
   return undefined;

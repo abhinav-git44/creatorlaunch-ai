@@ -1,4 +1,5 @@
 import { api, ApiError, saveEditKey, lastStore } from './ui.js';
+import { track } from './analytics.js';
 import { checkCreatorInput, checkHandle, AUDIENCE_SIZES } from './shared.js';
 
 const $ = (s) => document.querySelector(s);
@@ -18,7 +19,7 @@ const EXAMPLES = {
   },
 };
 
-const state = { mode: 'describe', niche: '', audienceSize: '', language: 'en' };
+const state = { mode: 'describe', niche: '', audienceSize: '', language: 'en', tone: 'friendly' };
 let pending = null; // last generation result, kept so a failed save never loses it
 let controller = null;
 let timer = null;
@@ -61,6 +62,7 @@ function syncControls() {
   pressed($('#niches'), 'data-niche', state.niche);
   pressed($('#audience'), 'data-size', state.audienceSize);
   pressed($('#language'), 'data-lang', state.language);
+  pressed($('#tone'), 'data-tone', state.tone);
   $('#counter').textContent = `${$('#description').value.length}/600`;
 }
 
@@ -75,6 +77,7 @@ function readInput() {
     niche: state.niche,
     audienceSize: state.audienceSize,
     language: state.language,
+    tone: state.tone,
   };
 }
 function saveDraft() {
@@ -87,7 +90,7 @@ function loadDraft() {
     $('#name').value = d.name || '';
     $('#handle').value = d.handle || '';
     $('#description').value = d.description || '';
-    Object.assign(state, { niche: d.niche || '', audienceSize: d.audienceSize || '', language: d.language || 'en' });
+    Object.assign(state, { niche: d.niche || '', audienceSize: d.audienceSize || '', language: d.language || 'en', tone: d.tone || 'friendly' });
     setMode(d.mode === 'instagram' ? 'instagram' : 'describe');
   } catch { /* ignore */ }
 }
@@ -149,6 +152,7 @@ async function generate(extra = '') {
   if (!check.ok) { show('form'); showErrors(check.errors); return; }
   if (extra) { $('#description').value = input.description; saveDraft(); }
 
+  track('creator_input_submitted', { meta: { mode: check.value.mode, language: check.value.language, tone: check.value.tone, niche: check.value.niche, audienceSize: check.value.audienceSize, hasHandle: Boolean(check.value.handle) } });
   show('generating');
   startTimer();
   controller = new AbortController();
@@ -229,6 +233,21 @@ document.querySelectorAll('[data-example]').forEach((b) => b.addEventListener('c
   setMode('describe');
   syncControls(); clearErrors();
 }));
+$('#tone').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tone]');
+  if (!b) return;
+  state.tone = b.dataset.tone;
+  syncControls(); saveDraft();
+});
+// "Onboarding started" = the creator's first real interaction with the form (not a page bounce).
+let started = false;
+const markStarted = () => {
+  if (started) return;
+  started = true;
+  track('onboarding_started', { meta: { mode: state.mode } });
+};
+$('#form').addEventListener('input', markStarted, { once: true });
+$('#form').addEventListener('click', (e) => { if (e.target.closest('button')) markStarted(); });
 $('#description').addEventListener('input', () => { syncControls(); saveDraft(); });
 $('#name').addEventListener('input', saveDraft);
 $('#handle').addEventListener('input', saveDraft);

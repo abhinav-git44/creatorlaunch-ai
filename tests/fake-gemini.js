@@ -61,6 +61,16 @@ export function startFakeGemini(port = 0) {
       res.writeHead(200, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'not json' }] } }] }));
     }
+    if (prompt.includes('FAKE_EMPTY')) {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ candidates: [{ content: { parts: [] }, finishReason: 'STOP' }] }));
+    }
+    if (prompt.includes('FAKE_DUP')) {
+      const out = respond(json.generationConfig?.responseSchema, prompt);
+      out.products[1] = { ...out.products[0] };
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(out) }] } }] }));
+    }
     if (prompt.includes('FAKE_ONE_PRODUCT')) {
       const out = respond(json.generationConfig?.responseSchema, prompt);
       out.products = out.products.slice(0, 1);

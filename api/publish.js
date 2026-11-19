@@ -1,10 +1,11 @@
 // POST   /api/stores/:id/publish — save latest content, pick a unique slug, go live. Idempotent.
 // DELETE /api/stores/:id/publish — unpublish (the slug is kept so republishing reuses the link).
-import { handler, allowMethods, readJson, sendJson, sendError, getQuery, HttpError } from '../lib/http.js';
+import { handler, allowMethods, readJson, sendJson, sendError, getQuery, HttpError, sessionIdFrom } from '../lib/http.js';
+import { track, stableId } from '../lib/events.js';
 import { db, DbError } from '../lib/db.js';
 import { loadEditableStore } from '../lib/stores.js';
 import { findFreeSlug, checkSlug, slugify } from '../lib/slug.js';
-import { normaliseContent, ValidationError } from '../public/assets/shared.js';
+import { normaliseContent, ValidationError, materialEdits } from '../public/assets/shared.js';
 
 function publicUrl(req, slug) {
   const host = process.env.PUBLIC_BASE_URL || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers['x-forwarded-host'] || req.headers.host}`;
@@ -16,8 +17,10 @@ export default handler(async (req, res) => {
   const { id } = getQuery(req);
   const store = await loadEditableStore(req, id);
 
+  const sessionId = sessionIdFrom(req);
   if (req.method === 'DELETE') {
     await db.update(store.id, { status: 'draft' });
+    if (store.status === 'published') await track('store_unpublished', { sessionId, storeId: store.id, slug: store.slug });
     return sendJson(res, 200, { status: 'draft', slug: store.slug });
   }
 
@@ -61,6 +64,28 @@ export default handler(async (req, res) => {
     if (body.slug) throw new HttpError(409, 'Someone just took that link. Try another.', { field: 'slug' });
     patch.slug = await findFreeSlug(`${slug}-x`, (s) => db.slugTaken(s, store.id));
     updated = await db.update(store.id, patch);
+  }
+
+  if (store.status !== 'published') {
+    // Counted once per publish (repeat clicks on Publish hit the same id and are ignored).
+    const firstEver = !store.published_at;
+    const edits = materialEdits(content.products);
+    await track('store_published', {
+      id: stableId('published', store.id, firstEver ? 'first' : updated.updated_at),
+      sessionId,
+      storeId: store.id,
+      slug: updated.slug,
+      meta: {
+        products: content.products.length,
+        aiSuggested: edits.suggested,
+        aiEdited: edits.edited,
+        theme: content.theme.style,
+        hasBuyLink: content.products.some((p) => p.buyUrl),
+        hasWhatsapp: Boolean(content.links?.whatsapp),
+        onboardingSession: store.input?.sessionId || null,
+        republish: !firstEver,
+      },
+    });
   }
 
   return sendJson(res, 200, {

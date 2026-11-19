@@ -1,4 +1,5 @@
--- CreatorLaunch AI: run this once in the Supabase SQL editor.
+-- CreatorLaunch AI: run this in the Supabase SQL editor. Safe to re-run (idempotent):
+-- running it again after an upgrade adds the new tables/functions without touching data.
 -- The app talks to these tables only from the server, with the service-role key.
 -- RLS is ON with no policies, so the public anon key can read or write nothing.
 
@@ -33,10 +34,59 @@ create table if not exists public.generations (
 
 create index if not exists generations_created_at_idx on public.generations (created_at);
 
+-- Product analytics (v2). id doubles as the de-duplication key. No IPs, names or free text.
+create table if not exists public.events (
+  id          text primary key,
+  name        text not null,
+  session_id  text,                                    -- anonymous browser session (random UUID)
+  store_id    uuid references public.stores(id) on delete set null,
+  slug        text,
+  meta        jsonb not null default '{}'::jsonb,      -- small whitelisted metadata
+  created_at  timestamptz not null default now()
+);
+create index if not exists events_name_created_idx on public.events (name, created_at);
+create index if not exists events_session_idx on public.events (session_id);
+create index if not exists events_created_idx on public.events (created_at);
+
+-- Shared rate limiting across serverless instances (fixed windows, hashed IP buckets).
+create table if not exists public.rate_limits (
+  bucket        text not null,
+  window_start  timestamptz not null,
+  hits          integer not null default 0,
+  primary key (bucket, window_start)
+);
+
+create or replace function public.hit_rate_limit(p_bucket text, p_window_seconds integer)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  w timestamptz := to_timestamp(floor(extract(epoch from now()) / p_window_seconds) * p_window_seconds);
+  n integer;
+begin
+  insert into public.rate_limits (bucket, window_start, hits)
+  values (p_bucket, w, 1)
+  on conflict (bucket, window_start) do update set hits = public.rate_limits.hits + 1
+  returning hits into n;
+  -- opportunistic cleanup of old windows (~1% of calls)
+  if random() < 0.01 then
+    delete from public.rate_limits where window_start < now() - interval '1 day';
+  end if;
+  return n;
+end;
+$$;
+
+revoke all on function public.hit_rate_limit(text, integer) from public, anon, authenticated;
+grant execute on function public.hit_rate_limit(text, integer) to service_role;
+
 alter table public.stores enable row level security;
 alter table public.generations enable row level security;
+alter table public.events enable row level security;
+alter table public.rate_limits enable row level security;
+-- No policies on purpose: the anon/authenticated roles can read or write nothing.
+-- The server uses the service_role/secret key, which bypasses RLS.
 
--- Activation metrics straight from the tables (no extra analytics needed for v1):
---   publish rate:      select count(*) filter (where published_at is not null)::float / count(*) from stores;
---   minutes to publish: select percentile_cont(0.5) within group (order by extract(epoch from published_at - created_at)/60) from stores where published_at is not null;
---   AI failure rate:   select count(*) filter (where status = 'error')::float / count(*) from generations;
+-- Reporting queries live in supabase/metrics.sql; the same numbers are served (aggregated only)
+-- by GET /api/metrics when METRICS_TOKEN is configured.

@@ -8,6 +8,12 @@ export const LANGUAGES = {
   hi: 'Hindi',
 };
 
+export const TONES = {
+  friendly: 'Friendly',
+  expert: 'Expert',
+  professional: 'Professional',
+};
+
 export const AUDIENCE_SIZES = {
   starting: 'Just starting (under 5K)',
   small: '5K – 20K',
@@ -34,13 +40,14 @@ export const THEMES = {
   elegant: 'Elegant Premium',
 };
 
+// All accents meet WCAG AA (≥4.5:1) for white text and on the Elegant theme's cream background.
 export const ACCENTS = {
   indigo: '#5B4BDB',
-  coral: '#E4572E',
-  emerald: '#0F8A68',
-  saffron: '#C97A00',
-  rose: '#D6336C',
-  ocean: '#1F6FEB',
+  coral: '#C2410C',
+  emerald: '#0B7A5C',
+  saffron: '#9C5A00',
+  rose: '#BE1E5A',
+  ocean: '#1A62D6',
   plum: '#7A3E9D',
   charcoal: '#2B2B2B',
 };
@@ -57,6 +64,7 @@ export const LIMITS = {
   benefit: 100,
   ctaLabel: 32,
   clarifyingQuestion: 220,
+  url: 300,
 };
 
 export const MAX_PRICE = 100000;
@@ -96,6 +104,42 @@ export function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+// ---------------------------------------------------------------- links
+
+// External links creators add (payment pages, websites). Only absolute http(s) URLs with a
+// real hostname; no credentials, no javascript:/data: schemes. Returns '' for empty input and
+// throws ValidationError for anything unsafe.
+export function cleanUrl(value, label = 'Link') {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`;
+  let u;
+  try { u = new URL(withScheme); } catch { throw new ValidationError(`${label} isn't a valid web address`); }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new ValidationError(`${label} must start with https://`);
+  if (u.username || u.password) throw new ValidationError(`${label} can't contain a username or password`);
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(u.hostname)) throw new ValidationError(`${label} needs a real domain, like rzp.io`);
+  const out = u.toString();
+  if (out.length > LIMITS.url) throw new ValidationError(`${label} is too long`);
+  return out;
+}
+
+// Indian mobile numbers (10 digits starting 6–9) get the 91 country code; other
+// international numbers are accepted as 11–15 digits. Returns digits only, or ''.
+export function cleanWhatsapp(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  let digits = raw.replace(/[^0-9]/g, '');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+  if (digits.length === 10 && /^[6-9]/.test(digits)) digits = `91${digits}`;
+  if (!/^[1-9][0-9]{10,14}$/.test(digits)) throw new ValidationError('WhatsApp number should be a 10-digit Indian mobile number (or include the country code)');
+  return digits;
+}
+
+export function whatsappLink(number, text) {
+  return `https://wa.me/${number}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
+}
+
 // ---------------------------------------------------------------- pricing
 
 // Indian price points people are used to seeing on creator products.
@@ -130,6 +174,12 @@ export function formatInr(price, format) {
   if (n === 0) return 'Free';
   const unit = FORMATS[format]?.unit || '';
   return '₹' + n.toLocaleString('en-IN') + unit;
+}
+
+export function typicalRange(format) {
+  const f = FORMATS[format];
+  if (!f) return '';
+  return `₹${f.min.toLocaleString('en-IN')}–₹${f.max.toLocaleString('en-IN')}${f.unit}`;
 }
 
 // ---------------------------------------------------------------- ids
@@ -187,19 +237,51 @@ export function normaliseProduct(p, { source = 'ai' } = {}) {
     .slice(0, 5);
   if (source === 'ai' && benefits.length < 2) throw new ValidationError('Product needs 2+ benefits');
 
-  return {
+  const title = requireText(p, 'title', LIMITS.title);
+  const shortDescription = requireText(p, 'shortDescription', LIMITS.shortDescription);
+  const product = {
     id: typeof p.id === 'string' && /^[a-z0-9]{4,16}$/.test(p.id) ? p.id : shortId(),
-    title: requireText(p, 'title', LIMITS.title),
+    title,
     format,
     priceInr: price,
     priceRationale: cleanText(p.priceRationale, LIMITS.priceRationale),
-    shortDescription: requireText(p, 'shortDescription', LIMITS.shortDescription),
+    shortDescription,
     description: cleanText(p.description, LIMITS.description, { multiline: true }),
     benefits,
     ctaLabel: cleanText(p.ctaLabel, LIMITS.ctaLabel) || 'Get it now',
+    buyUrl: source === 'user' ? cleanUrl(p.buyUrl, 'Payment link') : '',
     ...(priceAdjusted ? { priceGuarded: true } : {}),
   };
+  // Snapshot of what the AI suggested, kept so we can measure how much creators change
+  // AI output before publishing (the "material edit" quality metric). Never rendered.
+  if (source === 'ai') {
+    product.ai = { title, format, priceInr: price, shortDescription };
+  } else if (p.ai && typeof p.ai === 'object' && FORMATS[p.ai.format]) {
+    product.ai = {
+      title: cleanText(p.ai.title, LIMITS.title),
+      format: p.ai.format,
+      priceInr: Math.max(0, Math.min(MAX_PRICE, Math.round(Number(p.ai.priceInr)) || 0)),
+      shortDescription: cleanText(p.ai.shortDescription, LIMITS.shortDescription),
+    };
+  }
+  return product;
 }
+
+export function normaliseLinks(l, { strict = true } = {}) {
+  const links = { whatsapp: '', instagram: '', website: '' };
+  if (!l || typeof l !== 'object') return links;
+  const attempt = (fn) => { try { return fn(); } catch (err) { if (strict) throw err; return ''; } };
+  links.whatsapp = attempt(() => cleanWhatsapp(l.whatsapp));
+  links.website = attempt(() => cleanUrl(l.website, 'Website link'));
+  const h = normaliseHandle(l.instagram);
+  if (h) {
+    if (HANDLE_RE.test(h)) links.instagram = h;
+    else if (strict) throw new ValidationError('Instagram username can only use letters, numbers, dots and underscores');
+  }
+  return links;
+}
+
+const normTitle = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9\u0900-\u097f]+/g, ' ').trim();
 
 export function normaliseCreator(c) {
   if (!c || typeof c !== 'object') throw new ValidationError('Creator missing');
@@ -233,12 +315,52 @@ export function normaliseContent(raw, { source = 'ai' } = {}) {
     seen.add(np.id);
     return np;
   });
+  if (source === 'ai') {
+    // Reject sets a creator couldn't sell side by side: duplicate ideas or one format repeated.
+    const titles = new Set(normalisedProducts.map((p) => normTitle(p.title)));
+    if (titles.size < normalisedProducts.length) throw new ValidationError('Duplicate product ideas');
+    const formats = new Set(normalisedProducts.map((p) => p.format));
+    if (formats.size < 2) throw new ValidationError('All products use the same format');
+  }
   return {
     creator: normaliseCreator(raw.creator),
     theme: normaliseTheme(raw.theme),
     language: LANGUAGES[raw.language] ? raw.language : 'en',
+    tone: TONES[raw.tone] ? raw.tone : 'friendly',
+    links: normaliseLinks(raw.links, { strict: source === 'user' }),
     products: normalisedProducts,
   };
+}
+
+// ---------------------------------------------------------------- AI-quality metric
+
+function tokenSet(s) {
+  return new Set(String(s || '').toLowerCase().split(/[^a-z0-9\u0900-\u097f]+/).filter((w) => w.length > 2));
+}
+function jaccard(a, b) {
+  const A = tokenSet(a); const B = tokenSet(b);
+  if (!A.size && !B.size) return 1;
+  let inter = 0;
+  for (const w of A) if (B.has(w)) inter++;
+  return inter / (A.size + B.size - inter);
+}
+
+// A product counts as "materially edited" when, compared with the AI's version, the creator
+// changed its title or format, moved its price by more than 10%, or rewrote its one-line pitch
+// (word overlap below 60%). Typos and small tweaks don't count.
+export function materialEdits(products) {
+  let suggested = 0; let edited = 0;
+  for (const p of products || []) {
+    if (!p.ai) continue;
+    suggested++;
+    const priceMove = p.ai.priceInr > 0 ? Math.abs(Number(p.priceInr) - p.ai.priceInr) / p.ai.priceInr : (Number(p.priceInr) > 0 ? 1 : 0);
+    const changed = normTitle(p.title) !== normTitle(p.ai.title)
+      || p.format !== p.ai.format
+      || priceMove > 0.10
+      || jaccard(p.shortDescription, p.ai.shortDescription) < 0.6;
+    if (changed) edited++;
+  }
+  return { suggested, edited };
 }
 
 // ---------------------------------------------------------------- input checks
@@ -313,6 +435,7 @@ export function checkCreatorInput(input) {
     niche: cleanText(input?.niche, LIMITS.niche),
     audienceSize: AUDIENCE_SIZES[input?.audienceSize] ? input.audienceSize : '',
     language: LANGUAGES[input?.language] ? input.language : 'en',
+    tone: TONES[input?.tone] ? input.tone : 'friendly',
   };
   if (out.mode === 'instagram' || input?.handle) {
     const h = checkHandle(input?.handle);

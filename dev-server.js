@@ -38,7 +38,7 @@ async function serveStatic(pathname, res) {
     if (!file.startsWith(PUBLIC)) break;
     try {
       const data = await fs.readFile(file);
-      res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-cache' });
+      res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
       res.end(data);
       return true;
     } catch { /* try next */ }
@@ -46,10 +46,17 @@ async function serveStatic(pathname, res) {
   return false;
 }
 
+// Apply vercel.json "headers" so local runs (and tests) see the same security headers as production.
+const headerRules = (config.headers || []).map((h) => ({ re: new RegExp(`^${h.source}$`), headers: h.headers }));
+function applyHeaders(pathname, res) {
+  for (const rule of headerRules) if (rule.re.test(pathname)) for (const { key, value } of rule.headers) res.setHeader(key, value);
+}
+
 const server = http.createServer(async (req, res) => {
   const started = Date.now();
   try {
     const original = new URL(req.url, `http://localhost:${PORT}`);
+    applyHeaders(original.pathname, res);
     const rewritten = matchRewrite(original.pathname);
     const target = new URL(rewritten || original.pathname, original);
     for (const [k, v] of original.searchParams) if (!target.searchParams.has(k)) target.searchParams.set(k, v);

@@ -1,0 +1,7 @@
+tests/
+.data/
+docs/
+supabase/
+*.md
+!README.md
+DECISION_DOC.pdf

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Activation metrics · CreatorLaunch AI</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<header class="topbar"><a class="logo" href="/"><span class="logo-mark">C</span>CreatorLaunch</a><span class="spacer"></span><span class="eyebrow">Internal</span></header>
+<main class="page">
+  <section class="hero"><h1 style="font-size:24px">Activation metrics</h1>
+    <p>Real events only. No demo data. Definitions match the decision doc §6. Needs the <code>METRICS_TOKEN</code> set in Vercel.</p></section>
+  <form class="card" id="f">
+    <div class="field"><label for="tok">Admin token</label><input id="tok" type="password" autocomplete="off" required></div>
+    <div class="field"><label for="days">Window</label><select id="days"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select></div>
+    <button class="btn btn-primary btn-block" type="submit">Load metrics</button>
+    <div class="note error" id="err" hidden></div>
+  </form>
+  <section class="card" id="out" hidden></section>
+</main>
+<script type="module" src="/assets/admin.js"></script>
+</body>
+</html>

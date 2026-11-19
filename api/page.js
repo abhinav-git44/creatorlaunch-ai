@@ -4,16 +4,25 @@ import { handler, getQuery } from '../lib/http.js';
 import { db } from '../lib/db.js';
 import { renderStorefront, renderNotFound } from '../public/assets/render.js';
 
+const CSP = "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+
 function sendHtml(res, status, html, cache) {
   res.statusCode = status;
   res.setHeader('content-type', 'text/html; charset=utf-8');
   res.setHeader('cache-control', cache);
   res.setHeader('x-content-type-options', 'nosniff');
+  res.setHeader('content-security-policy', CSP);
+  res.setHeader('referrer-policy', 'strict-origin-when-cross-origin');
   res.end(html);
 }
 
 export default handler(async (req, res) => {
   const { slug } = getQuery(req);
+  if (slug && slug !== slug.toLowerCase() && /^[A-Za-z0-9-]{3,40}$/.test(slug)) {
+    res.statusCode = 301;
+    res.setHeader('location', `/s/${slug.toLowerCase()}`);
+    return res.end();
+  }
   if (!slug || !/^[a-z0-9-]{3,40}$/.test(slug)) {
     return sendHtml(res, 404, renderNotFound(), 'no-store');
   }

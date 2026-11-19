@@ -1,4 +1,5 @@
 // Browser helpers: API calls with timeouts, toasts, bottom sheets, edit-key storage.
+import { sessionId } from './analytics.js';
 
 export class ApiError extends Error {
   constructor(message, { status = 0, data = {} } = {}) {
@@ -17,7 +18,7 @@ export async function api(path, { method = 'GET', body, key, timeoutMs = 20000, 
   try {
     res = await fetch(path, {
       method,
-      headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...(key ? { 'x-edit-key': key } : {}) },
+      headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...(key ? { 'x-edit-key': key } : {}), 'x-session-id': sessionId() },
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
@@ -81,7 +82,17 @@ export function openSheet(build) {
     document.removeEventListener('keydown', onKey);
     previouslyFocused?.focus?.();
   };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const onKey = (e) => {
+    if (e.key === 'Escape') close();
+    if (e.key === 'Tab') {
+      // keep keyboard focus inside the dialog
+      const f = [...sheet.querySelectorAll('a[href],button:not([disabled]),input,textarea,select')].filter((x) => x.offsetParent !== null);
+      if (!f.length) return;
+      const first = f[0]; const last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  };
   backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
   document.addEventListener('keydown', onKey);
   build(sheet, close);
@@ -110,6 +121,21 @@ export function askInstruction({ title, sub, placeholder, confirmLabel = 'Regene
       sheet.querySelector('[data-x]').onclick = () => done(null);
       sheet.querySelector('[data-go]').onclick = () => done(input.value.trim());
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(input.value.trim()); });
+    });
+  });
+}
+
+// Plain yes/no confirmation for destructive actions.
+export function confirmSheet({ title, sub, confirmLabel = 'Continue', cancelLabel = 'Cancel' }) {
+  return new Promise((resolve) => {
+    openSheet((sheet, close) => {
+      sheet.innerHTML = `<h3></h3><p class="sub"></p><div class="row"><button type="button" class="btn btn-secondary" data-x></button><button type="button" class="btn btn-primary" data-go autofocus></button></div>`;
+      sheet.querySelector('h3').textContent = title;
+      sheet.querySelector('.sub').textContent = sub;
+      sheet.querySelector('[data-x]').textContent = cancelLabel;
+      sheet.querySelector('[data-go]').textContent = confirmLabel;
+      sheet.querySelector('[data-x]').onclick = () => { close(); resolve(false); };
+      sheet.querySelector('[data-go]').onclick = () => { close(); resolve(true); };
     });
   });
 }

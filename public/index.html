@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CreatorLaunch AI · Your store in minutes</title>
+<meta name="description" content="Tell us what you do. AI suggests what to sell, prices it in rupees and writes your store page, ready to share.">
+<meta name="theme-color" content="#F8F9FC">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236D5DFB'/%3E%3Cpath d='M10 22l6-12 6 12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="logo" href="/"><span class="logo-mark">C</span>CreatorLaunch</a>
+  <span class="spacer"></span>
+  <a id="continue" class="btn btn-ghost" href="#" hidden>Continue my store →</a>
+</header>
+
+<main class="page">
+  <section class="hero" id="hero">
+    <h1>Turn what you know into a store that sells.</h1>
+    <p>Tell us what you do. In about a minute, AI suggests what to sell, prices it in rupees and writes your page. You edit, then share one link.</p>
+  </section>
+
+  <!-- STEP 1: input -->
+  <form class="card" id="form" novalidate>
+    <div class="segmented" role="group" aria-label="How do you want to start?">
+      <button type="button" data-mode="describe" aria-pressed="true">Describe yourself</button>
+      <button type="button" data-mode="instagram" aria-pressed="false">Use my Instagram</button>
+    </div>
+
+    <div id="ig-block" hidden>
+      <div class="field" id="f-handle">
+        <label for="handle">Instagram username</label>
+        <div class="prefix-input"><span>@</span><input id="handle" name="handle" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="fitwithriya" maxlength="60"></div>
+        <div class="field-error" id="e-handle" hidden></div>
+      </div>
+      <div class="note"><span aria-hidden="true">ℹ️</span><span><strong>We won't read your Instagram profile.</strong>Instagram blocks automated access, so we use your username for your store link and an Instagram button. Tell us what you post about below, which works just as well.</span></div>
+    </div>
+
+    <div class="field" id="f-name">
+      <label for="name">Your name <span class="optional" id="name-optional" hidden>(optional)</span></label>
+      <input id="name" name="name" type="text" autocomplete="name" placeholder="Riya Sharma" maxlength="60">
+      <div class="field-error" id="e-name" hidden></div>
+    </div>
+
+    <div class="field" id="f-description">
+      <label for="description"><span id="desc-label">What do you do, and who do you help?</span> <span class="counter" id="counter">0/600</span></label>
+      <textarea id="description" name="description" rows="4" maxlength="600" placeholder="e.g. I'm a certified yoga teacher. I post 15-minute routines for working women with back pain. Most of my followers are 25–40 and work from home."></textarea>
+      <div class="examples"><span class="label-sm">Try an example:</span>
+        <button type="button" class="link-btn" data-example="fitness">Fitness coach</button>
+        <button type="button" class="link-btn" data-example="finance">Finance educator</button>
+        <button type="button" class="link-btn" data-example="exam">Exam prep (Hinglish)</button>
+      </div>
+      <div class="field-error" id="e-description" hidden></div>
+    </div>
+
+    <div class="field">
+      <span class="label">Your niche <span class="optional">(optional)</span></span>
+      <div class="chips" id="niches" role="group" aria-label="Niche"></div>
+    </div>
+
+    <div class="field">
+      <span class="label">Audience size <span class="optional">(optional, helps pricing)</span></span>
+      <div class="chips" id="audience" role="group" aria-label="Audience size"></div>
+    </div>
+
+    <div class="field">
+      <span class="label">Store language</span>
+      <div class="segmented" id="language" role="group" aria-label="Store language" style="margin-bottom:0">
+        <button type="button" data-lang="en" aria-pressed="true">English</button>
+        <button type="button" data-lang="hinglish" aria-pressed="false">Hinglish</button>
+        <button type="button" data-lang="hi" aria-pressed="false">हिंदी</button>
+      </div>
+    </div>
+
+    <div class="note error" id="form-error" role="alert" hidden></div>
+    <button class="btn btn-primary btn-block" id="submit" type="submit">Generate my store</button>
+    <p class="hint" style="text-align:center">Free · No sign-up · You can edit everything before it goes live</p>
+  </form>
+
+  <!-- STEP 2: generating -->
+  <section class="card generating" id="generating" hidden aria-live="polite">
+    <div class="loader" aria-hidden="true"></div>
+    <h2>Building your store…</h2>
+    <p>This usually takes 10–20 seconds.</p>
+    <ul class="making">
+      <li>Finding 2–4 things you can sell</li>
+      <li>Pricing them for Indian buyers</li>
+      <li>Writing your bio and product pages</li>
+      <li>Picking a look that suits your niche</li>
+    </ul>
+    <p class="elapsed" id="elapsed"></p>
+    <button type="button" class="btn btn-secondary" id="cancel">Cancel</button>
+  </section>
+
+  <!-- STEP 2b: AI wants more detail -->
+  <section class="card" id="clarify" hidden>
+    <div class="note warn"><span aria-hidden="true">💡</span><span><strong>A bit more detail will make this much better</strong><span id="clarify-q"></span></span></div>
+    <div class="field">
+      <label for="clarify-answer">Your answer</label>
+      <textarea id="clarify-answer" rows="3" maxlength="300"></textarea>
+    </div>
+    <div class="row">
+      <button type="button" class="btn btn-primary" id="clarify-go">Update my store</button>
+      <button type="button" class="btn btn-secondary" id="clarify-skip">Use this draft</button>
+    </div>
+  </section>
+
+  <!-- STEP 2c: error -->
+  <section class="card" id="failed" hidden>
+    <div class="note error" role="alert"><span aria-hidden="true">⚠️</span><span><strong>We couldn't build your store</strong><span id="failed-msg"></span></span></div>
+    <div class="row">
+      <button type="button" class="btn btn-primary" id="retry">Try again</button>
+      <button type="button" class="btn btn-secondary" id="back">Edit my details</button>
+    </div>
+  </section>
+</main>
+<footer class="site">A take-home prototype for SuperProfile · Prices are AI suggestions you can change</footer>
+<script type="module" src="/assets/create.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Edit your store · CreatorLaunch AI</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#F8F9FC">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236D5DFB'/%3E%3Cpath d='M10 22l6-12 6 12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="logo" href="/"><span class="logo-mark">C</span><span>CreatorLaunch</span></a>
+  <span class="spacer"></span>
+  <span class="save-status" id="save-status" aria-live="polite"></span>
+  <button type="button" class="btn btn-primary only-desktop" data-action="publish" id="publish-top" disabled>Publish</button>
+</header>
+
+<div class="editor-layout">
+  <main class="page" id="app" aria-busy="true">
+    <div class="card"><div class="skeleton" style="width:40%"></div><div class="skeleton"></div><div class="skeleton" style="width:80%"></div></div>
+    <div class="card"><div class="skeleton" style="width:30%"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton" style="width:60%"></div></div>
+  </main>
+  <aside class="preview-pane" id="preview-pane" aria-label="Live preview">
+    <div class="preview-head">
+      <span class="eyebrow">Live preview</span>
+      <div class="device-toggle" role="group" aria-label="Preview size">
+        <button type="button" data-device="phone" aria-pressed="true">Phone</button>
+        <button type="button" data-device="desktop" aria-pressed="false">Desktop</button>
+      </div>
+    </div>
+    <div class="frame-wrap"><iframe id="preview" title="Store preview" sandbox="allow-scripts allow-popups"></iframe></div>
+  </aside>
+</div>
+
+<nav class="bottom-bar" id="bottom-bar" hidden>
+  <button type="button" class="btn btn-secondary" data-action="preview">Preview</button>
+  <button type="button" class="btn btn-primary" data-action="publish" id="publish-bottom">Publish</button>
+</nav>
+<script type="module" src="/assets/editor.js"></script>
+</body>
+</html>

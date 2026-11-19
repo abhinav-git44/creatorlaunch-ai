@@ -4,7 +4,7 @@ Turn a creator's short description (or Instagram username) into a ready-to-publi
 
 Built as the SuperProfile *AI Storefront Generator* take-home (PM, AI-native 0→1).
 
-- **Live app:** `https://<your-project>.vercel.app`
+- **Live app:** https://creatorlaunch-ai1.vercel.app
 - **Decision doc:** [`DECISION_DOC.md`](DECISION_DOC.md)
 - **Loom script:** [`LOOM_SCRIPT.md`](LOOM_SCRIPT.md)
 

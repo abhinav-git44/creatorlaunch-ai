@@ -1,4 +1,4 @@
--- CreatorLaunch AI: activation reporting (read-only). Run in the Supabase SQL editor.
+-- Sell Sphere: activation reporting (read-only). Run in the Supabase SQL editor.
 -- Definitions match lib/metrics.js and DECISION_DOC.md §6. Real traffic only, nothing seeded.
 -- Change the window in the first CTE.
 

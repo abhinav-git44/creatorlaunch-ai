@@ -320,7 +320,7 @@ test('unknown or malformed store links show a friendly page, never an error dump
   for (const p of ['/s/does-not-exist', '/s/%3Cscript%3E', '/s/ab']) {
     const r = await call(p);
     assert.equal(r.status, 404);
-    assert.match(r.text, /Build your own store/);
+    assert.match(r.text, /Create your own store/);
   }
 });
 

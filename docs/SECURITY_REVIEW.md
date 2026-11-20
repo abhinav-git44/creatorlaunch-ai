@@ -1,6 +1,6 @@
 # Security Review
 
-**Scope:** CreatorLaunch AI v2 (this repo) as deployed on Vercel with Supabase Postgres. **Method:** code review of every endpoint and module, automated tests (`tests/api.test.js`, `tests/e2e.cjs`), and direct checks against the live Supabase project on 19 Nov 2026.
+**Scope:** Sell Sphere (formerly CreatorLaunch AI) v2 (this repo) as deployed on Vercel with Supabase Postgres. **Method:** code review of every endpoint and module, automated tests (`tests/api.test.js`, `tests/e2e.cjs`), and direct checks against the live Supabase project on 19 Nov 2026.
 
 **Threat model.** There are no user accounts. Attackers are (a) anonymous internet users hitting the API, (b) a visitor to a public storefront, and (c) someone who gets hold of a store's edit link. Assets: creators' unpublished drafts, the integrity of published pages, the Gemini key and its spend, and the Supabase service key.
 
@@ -23,6 +23,10 @@
 | 13 | Metrics endpoint | Exposing business data | Low | Off unless `METRICS_TOKEN` (≥16 chars) is set; constant-time token check; returns aggregates only. | API test *metrics endpoint is locked down* |
 | 14 | Slug handling | Path tricks, reserved routes | Low | Strict regex, reserved list (`api`, `admin`, `edit`…), DB check constraint, case-insensitive redirect. | API tests (reserved, collision, uppercase) |
 | 15 | Preview iframe | Preview content scripting the editor | Low | The preview runs in `sandbox="allow-scripts allow-popups"` (no same-origin), loads no scripts, and contains escaped content only. | E2E preview step |
+
+### Fonts (Sell Sphere rebrand)
+- The app pages load Space Grotesk from Google Fonts. The app CSP allows only `https://fonts.googleapis.com` (styles) and `https://fonts.gstatic.com` (font files); scripts stay `'self'` only. Public storefronts don't load Google Fonts and keep `default-src 'none'`.
+- Trade-off: each visit to the app sends the visitor's IP to Google. Self-hosting the font file removes that; it's listed in `docs/BRAND.md` as a follow-up.
 
 ### Instagram screenshot import
 - Max 3 images, ≤1.5 MB each, request ≤4 MB; type checked by **magic bytes** (JPEG/PNG/WebP), not by the declared MIME type. Resized in the browser before upload.

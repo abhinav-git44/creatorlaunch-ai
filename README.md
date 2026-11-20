@@ -1,13 +1,15 @@
-# CreatorLaunch AI
+# Sell Sphere
+
+**Create. Monetize. Grow.** From expertise to income. In minutes.
 
 Turn a creator's short description (or screenshots of their own Instagram profile) into a ready-to-publish storefront: an AI-written bio, 2–4 distinct product ideas with India-appropriate INR pricing and a reason for each price, product copy, and a mobile landing page at a public, shareable URL with buttons that actually reach the creator.
 
-Built for the SuperProfile *AI Storefront Generator* take-home (PM, AI-native 0→1).
+Built for the SuperProfile *AI Storefront Generator* take-home (PM, AI-native 0→1). The product was first called CreatorLaunch AI; the repo and the Vercel project keep that original name.
 
 - **Live app:** https://creatorlaunch-ai1.vercel.app
 - **Decision doc:** [`DECISION_DOC.md`](DECISION_DOC.md) · [PDF](DECISION_DOC.pdf)
 - **Loom script:** [`LOOM_SCRIPT.md`](LOOM_SCRIPT.md)
-- **Evidence:** [Test report](docs/TEST_REPORT.md) · [Security review](docs/SECURITY_REVIEW.md) · [AI evaluation](docs/AI_EVALUATION.md) · [Baseline audit](docs/BASELINE_AUDIT.md) · [Visual audit](docs/VISUAL_AUDIT.md) · [Submission checklist](docs/FINAL_SUBMISSION_CHECKLIST.md)
+- **Evidence:** [Test report](docs/TEST_REPORT.md) · [Security review](docs/SECURITY_REVIEW.md) · [AI evaluation](docs/AI_EVALUATION.md) · [Baseline audit](docs/BASELINE_AUDIT.md) · [Visual audit](docs/VISUAL_AUDIT.md) · [Submission checklist](docs/FINAL_SUBMISSION_CHECKLIST.md) · [Brand guide](docs/BRAND.md)
 
 ## What it does
 

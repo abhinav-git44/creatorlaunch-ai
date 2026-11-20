@@ -1,4 +1,4 @@
-// Runs the 30-case evaluation against a deployed CreatorLaunch AI (real Gemini, real validation).
+// Runs the 30-case evaluation against a deployed Sell Sphere (real Gemini, real validation).
 //   BASE_URL=https://creatorlaunch-ai1.vercel.app node scripts/eval.mjs
 // Options (env): DELAY_MS (default 65000; the deployed generate endpoint allows 10 per 10 min per IP),
 //                ONLY=id1,id2 to run a subset.

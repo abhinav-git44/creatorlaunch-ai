@@ -88,7 +88,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`CreatorLaunch AI running at http://localhost:${PORT}`);
+  console.log(`Sell Sphere running at http://localhost:${PORT}`);
   if (!process.env.GEMINI_API_KEY) console.log('!  GEMINI_API_KEY is not set: generation will return "AI not configured".');
   if (!process.env.SUPABASE_URL) console.log('i  SUPABASE_URL not set: using local file storage in .data/ (dev only).');
 });

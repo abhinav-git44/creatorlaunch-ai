@@ -1,4 +1,4 @@
--- CreatorLaunch AI: run this in the Supabase SQL editor. Safe to re-run (idempotent):
+-- Sell Sphere: run this in the Supabase SQL editor. Safe to re-run (idempotent):
 -- running it again after an upgrade adds the new tables/functions without touching data.
 -- The app talks to these tables only from the server, with the service-role key.
 -- RLS is ON with no policies, so the public anon key can read or write nothing.

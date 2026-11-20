@@ -1,4 +1,4 @@
-# CreatorLaunch AI: Decision Doc
+# Sell Sphere: Decision Doc
 
 **SuperProfile PM take-home · AI Storefront Generator · Abhinav Chaudhary**
 
@@ -52,7 +52,7 @@ I also rejected **chat onboarding**: 5+ turns means 5× the AI calls and a drop-
 
 ## 4. What I deliberately didn't build
 
-**Checkout** (SuperProfile has it; buttons route to the creator's own link), **accounts**, **Instagram scraping** (pasting a profile link can't work: Instagram blocks automated access), **AI images** (slow, easy to get wrong for real people), **a marketing landing page** (the first screen is the product), **version history** (undo covers "I liked the old one"), **a fake multi-stage progress bar** (it's one call, so staged ticks would be invented).
+**Checkout** (SuperProfile has it; buttons route to the creator's own link), **accounts**, **Instagram scraping** (pasting a profile link can't work: Instagram blocks automated access), **AI images** (slow, easy to get wrong for real people), **a marketing page in front of the product** (the form is the first screen; how it works, examples and FAQ sit below it), **version history** (undo covers "I liked the old one"), **a fake multi-stage progress bar** (it's one call, so staged ticks would be invented).
 
 ## 5. How the AI part works
 

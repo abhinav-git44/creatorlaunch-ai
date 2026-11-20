@@ -62,13 +62,13 @@ function showFatal(title, sub, retry = false) {
 
 function publishedBar() {
   if (store.status !== 'published' || !store.slug) {
-    return `<div class="note"><span aria-hidden="true">✏️</span><span><strong>Draft, only you can see this</strong>Check the details, then tap Publish to get your link. Bookmark this page to come back and edit; don't share its address.</span></div>`;
+    return `<div class="note"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg><span><strong>Draft, only you can see this</strong>Check the details, then tap Publish to get your link. Bookmark this page to come back and edit; don't share its address.</span></div>`;
   }
   const url = `${location.origin}/s/${store.slug}`;
   return `<div class="published-bar">
-    <div class="eyebrow" style="color:#11612F">● Live</div>
+    <div class="eyebrow live">● Live</div>
     <a class="url" href="${e(url)}" target="_blank" rel="noopener">${e(url.replace(/^https?:\/\//, ''))}</a>
-    <div class="hint" style="color:#2f6b43">Edits go live automatically, within about 30 seconds.</div>
+    <div class="hint">Edits go live automatically, within about 30 seconds.</div>
     <div class="row">
       <button type="button" class="btn btn-secondary" data-action="copy-link">Copy link</button>
       <a class="btn btn-secondary" href="https://wa.me/?text=${encodeURIComponent(`Check out my store: ${url}`)}" target="_blank" rel="noopener">WhatsApp</a>
@@ -522,7 +522,7 @@ function publishSheet() {
 
 function shareSheet(url) {
   openSheet((sheet, close) => {
-    sheet.innerHTML = `<div style="text-align:center;font-size:40px" aria-hidden="true">🎉</div>
+    sheet.innerHTML = `<div class="done-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
       <h3 style="text-align:center">Your store is live!</h3>
       <p class="sub" style="text-align:center;word-break:break-all"><a href="${e(url)}" target="_blank" rel="noopener">${e(url)}</a></p>
       <div style="display:grid;gap:10px">

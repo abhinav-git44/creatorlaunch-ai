@@ -61,7 +61,7 @@ details p{white-space:pre-line;opacity:.85;padding-top:2px}
 footer{text-align:center;font-size:13px;padding:40px 18px 48px}
 footer .share{display:flex;gap:10px;justify-content:center;margin-bottom:18px;flex-wrap:wrap}
 footer .share a,footer .share button{font:inherit;font-size:14px;font-weight:600;min-height:42px;padding:0 16px;border-radius:999px;border:1px solid currentColor;background:transparent;color:inherit;text-decoration:none;cursor:pointer;display:inline-flex;align-items:center;opacity:.85}
-footer small{display:block;opacity:.6;margin-top:6px}
+footer small{display:block;opacity:.7;margin-top:6px}footer small a{color:inherit;text-decoration:none}footer small a:hover{text-decoration:underline}
 .copy-fallback{font:inherit;font-size:14px;padding:10px 12px;border-radius:10px;border:1px solid #ccc;width:min(100%,360px)}
 .preview-banner{position:sticky;top:0;z-index:5;background:#16161A;color:#fff;font-size:13px;text-align:center;padding:8px 12px}
 :focus-visible{outline:3px solid var(--accent);outline-offset:3px}
@@ -298,7 +298,7 @@ ${heroHtml(content, handle, theme)}
   ${sectionTitle}
   <section class="products${products.length === 1 ? ' one' : products.length === 3 ? ' three' : ''}" aria-label="Products">${items}</section>
 </main>
-<footer>${share}<p>© ${year} ${e(c.displayName)}</p><small>Built with CreatorLaunch AI</small></footer>
+<footer>${share}<p>© ${year} ${e(c.displayName)}</p><small><a class="made" href="/">Made with Sell Sphere</a></small></footer>
 ${mode === 'preview' ? '' : '<script type="module" src="/assets/store.js"></script>'}
 </body>
 </html>`;
@@ -306,8 +306,8 @@ ${mode === 'preview' ? '' : '<script type="module" src="/assets/store.js"></scri
 
 export function renderNotFound(message = 'This store isn\'t live right now.') {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Store not found</title><meta name="robots" content="noindex">
-<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#F7F7F8;color:#16161A;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:24px;text-align:center}
-.box{max-width:380px}h1{font-size:22px;margin:0 0 8px}p{color:#5b5b66;margin:0 0 20px;line-height:1.5}a{display:inline-block;background:#5B4BDB;color:#fff;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:600}</style></head>
-<body><main class="box"><h1>${e(message)}</h1><p>The link may be mistyped, or the creator may have taken their store offline.</p><a href="/">Build your own store</a></main></body></html>`;
+<title>Store not found · Sell Sphere</title><meta name="theme-color" content="#090B12"><meta name="robots" content="noindex">
+<style>body{font-family:"Space Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#090B12;color:#F8FAFC;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:24px;text-align:center}
+.box{max-width:400px;background:rgba(27,29,42,.72);border:1px solid rgba(255,216,122,.18);border-radius:18px;padding:32px 24px}.brand{display:block;font-weight:700;font-size:15px;color:#FFD87A;margin-bottom:18px;letter-spacing:.01em}h1{font-size:22px;line-height:1.3;margin:0 0 8px}p{color:#A1A1AA;margin:0 0 22px;line-height:1.5}a.cta{display:inline-block;background:#FFB301;color:#090B12;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:600}a.cta:focus-visible{outline:3px solid rgba(255,216,122,.5);outline-offset:2px}</style></head>
+<body><main class="box"><span class="brand">Sell Sphere</span><h1>${e(message)}</h1><p>The link may be mistyped, or the creator may have taken their store offline.</p><a class="cta" href="/">Create your own store</a></main></body></html>`;
 }

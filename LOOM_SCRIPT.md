@@ -11,7 +11,7 @@
 ---
 
 **0:00–0:40 · Problem (say this over the create screen)**
-"New creators land on an empty store and stall. Building the page isn't the blocker; three decisions they've never made are: what to sell, what to charge, what to say. CreatorLaunch makes those three decisions for them, shows its reasons, and leaves one job: adjust and publish, in the first session."
+"New creators land on an empty store and stall. Building the page isn't the blocker; three decisions they've never made are: what to sell, what to charge, what to say. Sell Sphere makes those three decisions for them, shows its reasons, and leaves one job: adjust and publish, in the first session."
 
 **0:40–1:40 · Onboarding (screen: `/`)**
 1. Tap **Use my Instagram**. "Pasting a profile link can't work: Instagram blocks automated access and scraping is against its terms. So the creator uploads screenshots of their own profile." Add 1–2 screenshots **of your own account** (not someone else's), tick **This is my account**. Optionally generate here and show the "Built from your Instagram screenshots" note in the editor, then come back. "Official Instagram login is on my two-week roadmap."

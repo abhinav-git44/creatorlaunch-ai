@@ -124,6 +124,7 @@ function showErrors(errors) {
 function show(view) {
   for (const id of ['form', 'generating', 'clarify', 'failed']) $(`#${id}`).hidden = id !== view;
   $('#hero').hidden = view !== 'form';
+  const land = document.querySelector('.land'); if (land) land.hidden = view !== 'form';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

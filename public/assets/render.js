@@ -4,7 +4,7 @@
 //   minimal  – centred profile, clean card grid, price top-right
 //   bold     – full-bleed colour hero, sticker prices, offset-shadow cards, "Start here" entry offer
 //   elegant  – editorial: serif, hairline rules, numbered offers instead of boxes
-import { escapeHtml as e, formatInr, FORMATS, ACCENTS, whatsappLink, assetUrl } from './shared.js';
+import { escapeHtml as e, formatInr, FORMATS, ACCENTS, whatsappLink, assetUrl, visibleTestimonials } from './shared.js';
 
 function initials(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
@@ -62,6 +62,15 @@ details p{white-space:pre-line;opacity:.85;padding-top:2px}
 .note{display:none;margin-top:12px;font-size:13.5px;padding:10px 12px;border-radius:10px;background:var(--accent-soft)}
 .note.show{display:block}
 .note a{color:var(--accent);font-weight:600}
+.testimonials{margin-top:8px}
+.tgrid{display:grid;gap:14px}
+.tcard{margin:0;display:flex;flex-direction:column;gap:12px}
+.tcard blockquote{margin:0;white-space:pre-line;font-size:15.5px;line-height:1.6}
+.tcard blockquote:before{content:"\\201C";display:block;font-family:Georgia,serif;font-size:40px;line-height:.6;height:16px;color:var(--accent)}
+.tcard figcaption{font-size:14px}
+.tcard figcaption b{display:block;font-weight:700}
+.tcard figcaption span{opacity:.7;font-size:13px}
+@media (min-width:760px){.tgrid{grid-template-columns:repeat(2,1fr)}}
 .badge{display:inline-block;font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:999px}
 footer{text-align:center;font-size:13px;padding:40px 18px 48px}
 footer .share{display:flex;gap:10px;justify-content:center;margin-bottom:18px;flex-wrap:wrap}
@@ -100,6 +109,7 @@ footer{color:#5C5F6A}
 @media (min-width:760px){.products{grid-template-columns:repeat(2,1fr)}.products.one{grid-template-columns:minmax(0,520px);justify-content:center}}
 @media (min-width:1100px){.products.three{grid-template-columns:repeat(3,1fr)}}
 .hero.has-cover{padding-top:0}.hero.has-cover .avatar{margin-top:-42px}
+.tcard{background:#fff;border:1px solid #E6E7EC;border-radius:16px;padding:18px 18px 16px}
 `,
   bold: `
 body{background:#FFFBF5;color:#111}
@@ -131,6 +141,7 @@ footer{color:#333}
 @media (min-width:760px){.products{grid-template-columns:repeat(2,1fr);gap:24px}.hero{padding:56px 0 84px}}
 @media (min-width:1100px){.products.three{grid-template-columns:repeat(3,1fr)}}
 .hero.has-cover{padding-top:0}.hero.has-cover:after{display:none}.hero.has-cover .cover{border-bottom:3px solid #111}.hero.has-cover .id{margin-top:-29px}.hero.has-cover .id>div{margin-top:29px}
+.tcard{background:#fff;border:2.5px solid #111;border-radius:16px;padding:18px;box-shadow:4px 4px 0 #111}.tcard blockquote{font-weight:500}
 `,
   elegant: `
 body{background:#F6F1E9;color:#2A2420}
@@ -162,6 +173,7 @@ h1{font-size:clamp(28px,7vw,40px);line-height:1.2;font-weight:400;letter-spacing
 .badge{background:transparent;color:var(--accent);border:1px solid var(--accent);font-size:10px;letter-spacing:.18em;margin-bottom:8px}
 footer{color:#8C7B68}
 .hero.has-cover{padding-top:0}.hero.has-cover .avatar{margin-top:-46px;background:#F6F1E9;box-shadow:0 0 0 5px #F6F1E9}.hero.has-cover .cover{max-height:300px}
+.tgrid{gap:0}.tcard{padding:22px 0;border-top:1px solid #DDD0BE}.tcard blockquote{font-family:var(--serif);font-style:italic;font-size:18px;line-height:1.55}.tcard blockquote:before{font-size:48px}.tcard figcaption b{font-family:var(--serif);font-weight:400;font-size:16px}@media (min-width:760px){.tgrid{grid-template-columns:1fr}}
 `,
 };
 
@@ -279,6 +291,11 @@ export function renderStorefront(content, { handle = '', slug = '', baseUrl = ''
   }
 
   const items = products.map((p, i) => productHtml(p, i, content, handle, theme, entryId)).join('');
+  const quotes = visibleTestimonials(content);
+  const tTitle = theme === 'bold' ? '<h2 class="section-title" id="t-h"><span>What people say</span></h2>' : '<h2 class="section-title" id="t-h">What people say</h2>';
+  const testimonials = quotes.length
+    ? `<section class="testimonials" aria-labelledby="t-h">${tTitle}<div class="tgrid">${quotes.map((t) => `<figure class="tcard"><blockquote>${e(t.quote)}</blockquote><figcaption><b>${e(t.name)}</b>${t.detail ? `<span>${e(t.detail)}</span>` : ''}</figcaption></figure>`).join('')}</div></section>`
+    : '';
   const sectionTitle = theme === 'bold' ? '<h2 class="section-title"><span>What I offer</span></h2>' : '<h2 class="section-title">What I offer</h2>';
   const share = url
     ? `<div class="share"><button type="button" data-copy="${e(url)}">Copy store link</button>
@@ -316,6 +333,7 @@ ${heroHtml(content, handle, theme, src)}
 <main class="wrap" id="offers">
   ${sectionTitle}
   <section class="products${products.length === 1 ? ' one' : products.length === 3 ? ' three' : ''}" aria-label="Products">${items}</section>
+  ${testimonials}
 </main>
 <footer>${share}<p>© ${year} ${e(c.displayName)}</p><small><a class="made" href="/">Made with Sell Sphere</a></small></footer>
 ${mode === 'preview' ? '' : '<script type="module" src="/assets/store.js"></script>'}

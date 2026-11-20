@@ -361,6 +361,36 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
     }
     await pub.close();
 
+    // ------------------------------------------------------------ 12. Testimonials
+    console.log('12. Testimonials');
+    await ig.click('[data-action="t-add"]');
+    const tq = await ig.waitForSelector('#sec-testimonials textarea[data-tf="quote"]');
+    check(await ig.evaluate(() => document.activeElement?.dataset.tf === 'quote'), 'adding a testimonial focuses its text box');
+    await tq.type('hi maam your 15 min routines realy helped my back pain thank you');
+    await ig.fill('#sec-testimonials input[data-tf="name"]', 'Asha');
+    await ig.fill('#sec-testimonials input[data-tf="detail"]', 'Teacher, Pune');
+    check((await ig.textContent('#sec-testimonials .tst-hidden')).includes('Hidden'), 'not shown on the store until confirmed');
+    await ig.click('[data-action="t-tidy"]');
+    await ig.waitForSelector('.tidy');
+    check((await ig.textContent('.tidy p')).startsWith('Your 15 min routines'), 'AI tidy-up suggests a cleaned version of the real message, side by side');
+    await ig.click('[data-action="t-use"]');
+    check((await ig.inputValue('#sec-testimonials textarea[data-tf="quote"]')).startsWith('Your 15 min'), 'tidied version applied (undo available)');
+    await ig.check('#sec-testimonials input[data-tf="consent"]');
+    await ig.waitForSelector('#sec-testimonials .tst-live');
+    check(true, 'ticking consent marks it "Shown on your store"');
+    await ig.waitForTimeout(2200);
+    const tp = await phone.newPage();
+    watch(tp);
+    await tp.goto(liveUrl);
+    const tText = await tp.textContent('.testimonials');
+    check(tText.includes('Asha') && tText.includes('Teacher, Pune') && tText.includes('Your 15 min'), 'public storefront shows the confirmed testimonial');
+    await ig.uncheck('#sec-testimonials input[data-tf="consent"]');
+    await ig.waitForTimeout(2200);
+    await tp.goto(liveUrl);
+    check(!(await tp.$('.testimonials')), 'unticking consent removes it from the public page');
+    await shot(ig, 'after-14-testimonials-editor-phone');
+    await tp.close();
+
     check(errors.length === 0, `no browser errors or unexpected dialogs${errors.length ? ': ' + errors.join(' | ') : ''}`);
     console.log(`\nAll browser checks passed (${passed}).`);
   } catch (err) {

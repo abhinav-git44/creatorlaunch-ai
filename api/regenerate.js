@@ -6,11 +6,11 @@ import { handler, allowMethods, readJson, sendJson, sendError, rateLimit, HttpEr
 import { track } from '../lib/events.js';
 import { loadEditableStore } from '../lib/stores.js';
 import { db } from '../lib/db.js';
-import { generateStorefront, regenerateBio, regenerateProduct, regeneratePrice } from '../lib/ai.js';
+import { generateStorefront, regenerateBio, regenerateProduct, regeneratePrice, tidyTestimonial } from '../lib/ai.js';
 import { friendlyLlmError } from '../lib/llm.js';
 import { normaliseContent, cleanText, LANGUAGES, ValidationError } from '../public/assets/shared.js';
 
-const TARGETS = ['all', 'bio', 'product', 'price', 'add_product'];
+const TARGETS = ['all', 'bio', 'product', 'price', 'add_product', 'testimonial'];
 
 export default handler(async (req, res) => {
   if (!allowMethods(req, res, ['POST'])) return;
@@ -22,6 +22,22 @@ export default handler(async (req, res) => {
   const target = TARGETS.includes(body.target) ? body.target : null;
   if (!target) return sendError(res, 400, 'Unknown regenerate target.');
   const instruction = cleanText(body.instruction, 200);
+
+  // Tidy a real customer message the creator pasted. Never creates a testimonial from nothing.
+  if (target === 'testimonial') {
+    const raw = cleanText(body.raw, 1200, { multiline: true });
+    if (raw.length < 15) return sendError(res, 422, 'Paste the customer\'s actual message first (at least a sentence), then tap Tidy up.');
+    try {
+      const result = await tidyTestimonial(raw, { name: cleanText(body.name, 60), language: store.content?.language || store.input?.language });
+      await db.logGeneration({ store_id: store.id, kind: 'testimonial_tidy', model: result.model, status: 'ok', latency_ms: result.ms, attempts: result.attempts });
+      return sendJson(res, 200, { quote: result.data });
+    } catch (err) {
+      await db.logGeneration({ store_id: store.id, kind: 'testimonial_tidy', status: 'error', error_code: err.code || 'unknown', latency_ms: err.ms || null });
+      if (err.code === 'bad_output') return sendError(res, 422, 'The AI couldn\'t tidy this without changing its meaning. It\'s fine to use the message as it is.');
+      const f = friendlyLlmError(err);
+      return sendError(res, f.status, f.message);
+    }
+  }
 
   let content;
   try {

@@ -628,3 +628,52 @@ test('AI cover is rate limited per visitor', async () => {
   for (let i = 0; i < 6; i++) last = await call(`/api/stores/${id}/cover`, { method: 'POST', key: editKey, body: {}, ip });
   assert.equal(last.status, 429);
 });
+
+// ------------------------------------------------------------------ testimonials
+
+test('testimonials: creator-written, saved and cleaned; only confirmed ones are public; AI never adds them', async () => {
+  const { id, editKey, content } = await makeStore();
+  assert.equal(content.testimonials, undefined, 'generation never invents testimonials');
+  const testimonials = [
+    { id: 'tA1', quote: 'The <b>15-minute</b> routines fixed my back pain.<script>x</script>', name: 'Asha', detail: 'Teacher, Pune', source: 'whatsapp', consent: true },
+    { id: 'tB2', quote: 'Not confirmed yet', name: 'Ravi' },
+    { id: 'tC3', quote: '', name: '' },
+    { quote: 'Confirmed but no name', name: '', consent: true },
+  ];
+  const p = await call(`/api/stores/${id}`, { method: 'PATCH', key: editKey, body: { content: { ...content, testimonials } } });
+  assert.equal(p.status, 200, p.text);
+  const saved = p.json.content.testimonials;
+  assert.equal(saved.length, 3, 'empty drafts dropped');
+  assert.equal(saved[0].quote, 'The 15-minute routines fixed my back pain.x', 'markup stripped');
+  assert.equal(saved[0].consent, true);
+  assert.equal(saved[1].consent, undefined);
+
+  const pub = await call(`/api/stores/${id}/publish`, { method: 'POST', key: editKey, body: { slug: `tst-${Date.now().toString(36)}` } });
+  const page = await call(`/s/${pub.json.slug}`);
+  assert.ok(page.text.includes('What people say'));
+  assert.ok(page.text.includes('Asha') && page.text.includes('Teacher, Pune'));
+  assert.ok(!page.text.includes('Not confirmed yet'), 'unconfirmed testimonial is not public');
+  assert.ok(!page.text.includes('Confirmed but no name'), 'incomplete testimonial is not public');
+  assert.ok(!page.text.includes('whatsapp</'), 'source is private');
+
+  const many = Array.from({ length: 9 }, (_, i) => ({ quote: `Quote ${i}`, name: `N${i}`, consent: true }));
+  const p2 = await call(`/api/stores/${id}`, { method: 'PATCH', key: editKey, body: { content: { ...content, testimonials: many } } });
+  assert.equal(p2.json.content.testimonials.length, 6, 'capped at 6');
+});
+
+test('testimonial tidy-up: needs a real pasted message, keeps meaning, refuses invented claims', async () => {
+  const { id, editKey } = await makeStore();
+  const tidy = (raw) => call('/api/regenerate', { method: 'POST', key: editKey, body: { id, target: 'testimonial', raw, name: 'Asha' } });
+  const ok = await tidy('hi maam your 15 min routines realy helped my back pain, thank you so much');
+  assert.equal(ok.status, 200, ok.text);
+  assert.match(ok.json.quote, /^Your 15 min routines/);
+  assert.ok(!/\d/.test(ok.json.quote.replace('15', '')), 'no new numbers');
+
+  const empty = await tidy('great');
+  assert.equal(empty.status, 422, 'refuses to write one from almost nothing');
+  assert.match(empty.json.error.message, /actual message/);
+
+  const invented = await tidy('FAKE_TIDY_INVENT the classes were fun and I feel much better now');
+  assert.equal(invented.status, 422, 'output with a number the customer never said is rejected');
+  assert.match(invented.json.error.message, /without changing its meaning/);
+});

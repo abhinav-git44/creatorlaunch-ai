@@ -388,3 +388,16 @@ footer.site .logo { font-size: 20px; }
 .avatar-box { width: 72px; height: 72px; border-radius: 50%; overflow: hidden; flex: none; display: flex; align-items: center; justify-content: center; background: var(--surface-elevated); border: 1px solid var(--border-subtle); font-weight: 700; font-size: 22px; color: var(--brand-champagne); }
 .avatar-box img { width: 100%; height: 100%; object-fit: cover; }
 .media-actions:has(input[type=file]:focus-visible) label.btn { box-shadow: var(--focus-ring); }
+
+/* ---------- testimonials (editor) */
+.tst { border: 1px solid var(--border-neutral); border-radius: 16px; padding: 16px; background: rgba(9, 11, 18, .35); }
+.tst + .tst { margin-top: 14px; }
+.tst .product-top .btn-ghost { min-width: 36px; padding: 0 8px; }
+.t-grid { display: grid; gap: 0 12px; grid-template-columns: 1fr; }
+@media (min-width: 520px) { .t-grid { grid-template-columns: 1fr 1fr; } }
+.tst-live { color: var(--success); text-transform: none; letter-spacing: 0; font-weight: 600; }
+.tst-hidden { color: var(--text-secondary); text-transform: none; letter-spacing: 0; font-weight: 500; }
+.tidy { margin-top: 10px; border: 1px solid var(--border-subtle); background: var(--brand-champagne-soft); border-radius: 12px; padding: 12px 14px; }
+.tidy b { display: block; font-size: 13px; color: var(--brand-champagne); font-weight: 600; margin-bottom: 4px; }
+.tidy p { margin: 0 0 10px; white-space: pre-line; font-size: 14.5px; }
+.tidy .row .btn { min-height: 38px; font-size: 14px; }

@@ -1,5 +1,5 @@
 import { api, ApiError, toast, openSheet, askInstruction, confirmSheet, saveEditKey, getEditKey, copyText } from './ui.js';
-import { FORMATS, THEMES, ACCENTS, LANGUAGES, TONES, LIMITS, MAX_PRICE, escapeHtml as e, formatInr, typicalRange, cleanUrl, cleanWhatsapp, normaliseLinks, assetUrl } from './shared.js';
+import { FORMATS, THEMES, ACCENTS, LANGUAGES, TONES, LIMITS, MAX_PRICE, escapeHtml as e, formatInr, typicalRange, cleanUrl, cleanWhatsapp, normaliseLinks, assetUrl, MAX_TESTIMONIALS, TESTIMONIAL_SOURCES, shortId } from './shared.js';
 import { track, setEditKey } from './analytics.js';
 import { renderStorefront } from './render.js';
 
@@ -310,6 +310,127 @@ function productsCard() {
   </section>`;
 }
 
+// ---------------------------------------------------------------- testimonials
+// Creator-written only. "Tidy up with AI" cleans a real message the creator pasted; it never
+// writes one from nothing. A testimonial shows on the store only after the creator ticks consent.
+
+const tidySuggest = new Map(); // testimonial id -> AI-tidied text waiting for "Use this"
+
+function testimonialItem(t, i, n) {
+  const tid = e(t.id);
+  const live = t.consent && t.quote && t.name;
+  const sugg = tidySuggest.get(t.id);
+  const tidying = busy.has(`t-${t.id}`);
+  const sources = Object.entries(TESTIMONIAL_SOURCES).map(([k, v]) => `<option value="${k}" ${t.source === k ? 'selected' : ''}>${v}</option>`).join('');
+  return `<div class="tst" data-tid="${tid}">
+    <div class="product-top">
+      <span class="product-num">Testimonial ${i + 1} · <span class="${live ? 'tst-live' : 'tst-hidden'}">${live ? 'Shown on your store' : 'Hidden until complete and confirmed'}</span></span>
+      <span class="row" style="gap:2px;flex-wrap:nowrap">
+        <button type="button" class="btn btn-ghost" data-action="t-up" aria-label="Move testimonial ${i + 1} up" ${i === 0 ? 'disabled' : ''}>↑</button>
+        <button type="button" class="btn btn-ghost" data-action="t-down" aria-label="Move testimonial ${i + 1} down" ${i === n - 1 ? 'disabled' : ''}>↓</button>
+        <button type="button" class="btn btn-danger" data-action="t-delete" aria-label="Delete testimonial ${i + 1}">Delete</button>
+      </span>
+    </div>
+    <div class="field">
+      <label for="t-quote-${tid}">What they said</label>
+      <textarea id="t-quote-${tid}" data-tf="quote" rows="3" maxlength="${LIMITS.testimonialQuote}" placeholder="Paste their real message, e.g. a WhatsApp reply after your class">${e(t.quote)}</textarea>
+      <div class="media-actions" style="margin-top:8px">
+        <button type="button" class="btn btn-secondary" data-action="t-tidy" ${tidying || !t.quote ? 'disabled' : ''}>${tidying ? '<span class="spin"></span>Tidying…' : `${ICON_SPARK}Tidy up with AI`}</button>
+        <span class="hint" style="margin:0">Fixes spelling and trims it. Never adds anything they didn't say.</span>
+      </div>
+      ${sugg ? `<div class="tidy"><b>AI-tidied version</b><p>${e(sugg)}</p><div class="row"><button type="button" class="btn btn-primary" data-action="t-use">Use this</button><button type="button" class="btn btn-secondary" data-action="t-keep">Keep the original</button></div></div>` : ''}
+    </div>
+    <div class="t-grid">
+      <div class="field"><label for="t-name-${tid}">Their name</label><input id="t-name-${tid}" type="text" data-tf="name" maxlength="${LIMITS.testimonialName}" value="${e(t.name)}" placeholder="e.g. Asha"></div>
+      <div class="field"><label for="t-detail-${tid}">Detail <span class="optional">(optional)</span></label><input id="t-detail-${tid}" type="text" data-tf="detail" maxlength="${LIMITS.testimonialDetail}" value="${e(t.detail || '')}" placeholder="e.g. Student, Pune"></div>
+    </div>
+    <div class="field"><label for="t-source-${tid}">Where it came from <span class="optional">(only you see this)</span></label><select id="t-source-${tid}" data-tf="source"><option value="">Choose…</option>${sources}</select></div>
+    <label class="check"><input type="checkbox" id="t-consent-${tid}" data-tf="consent" ${t.consent ? 'checked' : ''}><span>This is a real message from this person, and they're happy for me to show it on my store.</span></label>
+  </div>`;
+}
+
+function testimonialsCard() {
+  const list = content.testimonials || [];
+  const n = list.length;
+  const first = content.products[0]?.title || 'my class';
+  const ask = `Hi! Thank you for joining ${first}. Would you share 2–3 lines about what it was like for you? I'd love to show it on my store page with your first name. No pressure at all!`;
+  return `<section class="card" id="sec-testimonials">
+    <div class="card-head"><h2>Testimonials <span class="optional">(${n}/${MAX_TESTIMONIALS})</span></h2></div>
+    <p class="hint" style="margin:-6px 0 14px">Real words from people you've helped build trust fast. Add them yourself; they appear under your products once you confirm each one.</p>
+    ${list.map((t, i) => testimonialItem(t, i, n)).join('')}
+    ${!n ? '<div class="note"><span><strong>No testimonials yet</strong>Paste a message a student or client sent you, or ask a few of them for one.</span></div>' : ''}
+    <div class="row" style="margin-top:14px">
+      ${n < MAX_TESTIMONIALS ? '<button type="button" class="btn btn-secondary" data-action="t-add">+ Add a testimonial</button>' : ''}
+      <a class="btn btn-ghost" href="https://wa.me/?text=${encodeURIComponent(ask)}" target="_blank" rel="noopener">Ask for one on WhatsApp</a>
+    </div>
+  </section>`;
+}
+
+function testimonialById(el) {
+  const tid = el.closest('[data-tid]')?.dataset.tid;
+  const list = content.testimonials || [];
+  const idx = list.findIndex((t) => t.id === tid);
+  return { tid, idx, list, t: list[idx] };
+}
+
+function onTestimonialEdit(target) {
+  const { t } = testimonialById(target);
+  if (!t) return;
+  const f = target.dataset.tf;
+  const wasLive = !!(t.consent && t.quote && t.name);
+  if (f === 'consent') { if (target.checked) t.consent = true; else delete t.consent; }
+  else if (f === 'source') { if (target.value) t.source = target.value; else delete t.source; }
+  else t[f] = target.value;
+  if (f === 'quote') tidySuggest.delete(t.id);
+  const isLive = !!(t.consent && t.quote && t.name);
+  scheduleSave(); updatePreview();
+  // Update in place (no full re-render) so typing never loses the cursor.
+  const item = target.closest('[data-tid]');
+  if (f === 'quote') { item.querySelector('.tidy')?.remove(); const b = item.querySelector('[data-action="t-tidy"]'); if (b) b.disabled = !t.quote; }
+  if (wasLive !== isLive) {
+    const st = item.querySelector('.tst-live, .tst-hidden');
+    if (st) { st.className = isLive ? 'tst-live' : 'tst-hidden'; st.textContent = isLive ? 'Shown on your store' : 'Hidden until complete and confirmed'; }
+  }
+}
+
+function testimonialAction(action, el) {
+  if (action === 't-add') {
+    content.testimonials = content.testimonials || [];
+    if (content.testimonials.length >= MAX_TESTIMONIALS) return;
+    const t = { id: shortId(), quote: '', name: '', detail: '' };
+    content.testimonials.push(t);
+    renderAll();
+    document.getElementById(`t-quote-${t.id}`)?.focus();
+    return;
+  }
+  const { idx, list, t } = testimonialById(el);
+  if (!t) return;
+  if (action === 't-delete') {
+    const [removed] = list.splice(idx, 1);
+    renderAll(); updatePreview(); scheduleSave();
+    if (removed.quote || removed.name) toast('Testimonial deleted.', { action: () => { list.splice(Math.min(idx, list.length), 0, removed); renderAll(); updatePreview(); scheduleSave(); } });
+  } else if (action === 't-up' || action === 't-down') {
+    const j = action === 't-up' ? idx - 1 : idx + 1;
+    if (j < 0 || j >= list.length) return;
+    [list[idx], list[j]] = [list[j], list[idx]];
+    renderAll(); updatePreview(); scheduleSave();
+  } else if (action === 't-tidy') {
+    withBusy(`t-${t.id}`, async () => {
+      const res = await regenerate(`t-${t.id}`, { target: 'testimonial', raw: t.quote, name: t.name });
+      tidySuggest.set(t.id, res.quote);
+    });
+  } else if (action === 't-use') {
+    const prev = t.quote;
+    t.quote = tidySuggest.get(t.id) || t.quote;
+    tidySuggest.delete(t.id);
+    renderAll(); updatePreview(); scheduleSave();
+    toast('Tidied version used.', { action: () => { t.quote = prev; renderAll(); updatePreview(); scheduleSave(); } });
+  } else if (action === 't-keep') {
+    tidySuggest.delete(t.id);
+    renderAll();
+  }
+}
+
 function linksCard() {
   const l = content.links || {};
   return `<section class="card" id="sec-links">
@@ -352,7 +473,7 @@ function startOverCard() {
 
 function renderAll() {
   const active = document.activeElement?.id;
-  app.innerHTML = publishedBar() + profileCard() + productsCard() + linksCard() + lookCard() + startOverCard();
+  app.innerHTML = publishedBar() + profileCard() + productsCard() + testimonialsCard() + linksCard() + lookCard() + startOverCard();
   if (active) document.getElementById(active)?.focus();
   validateLocal();
 }
@@ -532,10 +653,12 @@ function onEdit(target) {
 }
 
 app.addEventListener('input', (ev) => {
+  if (ev.target.matches('[data-tf]') && ev.target.type !== 'checkbox' && ev.target.tagName !== 'SELECT') { onTestimonialEdit(ev.target); return; }
   if (ev.target.matches('[data-bind],[data-pf],[data-link]')) onEdit(ev.target);
 });
 app.addEventListener('change', (ev) => {
   if (ev.target.matches('input[type=file][data-upload]')) { onPickImage(ev.target); return; }
+  if (ev.target.matches('input[type=checkbox][data-tf], select[data-tf]')) { onTestimonialEdit(ev.target); return; }
   if (ev.target.matches('select[data-pf]')) onEdit(ev.target);
 });
 
@@ -636,7 +759,7 @@ async function regenAll({ language, tone, ask = true } = {}) {
     const res = await regenerate('all', { target: 'all', instruction, language: language || content.language, tone: tone || content.tone });
     const prev = clone(content);
     // Keep the creator's chosen name, look and contact links; replace the AI-written parts.
-    content = { ...res.content, creator: { ...res.content.creator, displayName: content.creator.displayName, ...snapshotImagesOf(content) }, theme: content.theme, links: content.links };
+    content = { ...res.content, creator: { ...res.content.creator, displayName: content.creator.displayName, ...snapshotImagesOf(content) }, theme: content.theme, links: content.links, testimonials: content.testimonials };
     toast(language ? `Store rewritten in ${LANGUAGES[language]}.` : tone ? `Store rewritten in a ${TONES[tone].toLowerCase()} voice.` : 'Fresh store generated.', { action: () => { content = prev; renderAll(); updatePreview(); scheduleSave(); } });
   });
 }
@@ -738,6 +861,7 @@ document.addEventListener('click', (ev) => {
       case 'add-product': return addProduct();
       case 'regen-all': return regenAll();
       case 'gen-cover': return generateCover();
+      case 't-add': case 't-delete': case 't-up': case 't-down': case 't-tidy': case 't-use': case 't-keep': return testimonialAction(action, t);
       case 'remove-cover': return removeImage('cover');
       case 'remove-avatar': return removeImage('avatar');
       case 'publish': return publishSheet();

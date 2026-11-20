@@ -66,6 +66,9 @@ export const LIMITS = {
   clarifyingQuestion: 220,
   url: 300,
   profileNotes: 700,
+  testimonialQuote: 400,
+  testimonialName: 60,
+  testimonialDetail: 60,
 };
 
 export const MAX_PRICE = 100000;
@@ -312,6 +315,36 @@ export function normaliseTheme(t) {
   };
 }
 
+// ---------------------------------------------------------------- testimonials
+// Only ever written by the creator (typed in, or a real message they pasted and had AI tidy).
+// The AI never invents testimonials, and one shows on the store only once the creator confirms
+// it's a real message shared with permission (consent: true).
+export const MAX_TESTIMONIALS = 6;
+export const TESTIMONIAL_SOURCES = { whatsapp: 'WhatsApp', instagram: 'Instagram', email: 'Email', in_person: 'In person', other: 'Other' };
+
+export function normaliseTestimonials(list) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const t of list.slice(0, MAX_TESTIMONIALS)) {
+    if (!t || typeof t !== 'object') continue;
+    const quote = cleanText(t.quote, LIMITS.testimonialQuote, { multiline: true });
+    const name = cleanText(t.name, LIMITS.testimonialName);
+    if (!quote && !name) continue; // an empty draft
+    let id = /^[a-z0-9]{4,16}$/i.test(String(t.id || '')) ? String(t.id) : shortId();
+    if (seen.has(id)) id = shortId();
+    seen.add(id);
+    const item = { id, quote, name, detail: cleanText(t.detail, LIMITS.testimonialDetail) };
+    if (TESTIMONIAL_SOURCES[t.source]) item.source = t.source;
+    if (t.consent === true) item.consent = true;
+    out.push(item);
+  }
+  return out;
+}
+
+// What the public page shows: complete, consented testimonials only.
+export const visibleTestimonials = (content) => (content?.testimonials || []).filter((t) => t.consent && t.quote && t.name);
+
 // Full storefront content. AI output must have 2–4 products; creator edits may
 // go down to 1 (they can delete a product they don't like).
 export function normaliseContent(raw, { source = 'ai' } = {}) {
@@ -341,6 +374,8 @@ export function normaliseContent(raw, { source = 'ai' } = {}) {
     tone: TONES[raw.tone] ? raw.tone : 'friendly',
     links: normaliseLinks(raw.links, { strict: source === 'user' }),
     products: normalisedProducts,
+    // AI output never carries testimonials; only the creator's own saves do.
+    ...(source === 'user' && Array.isArray(raw.testimonials) ? { testimonials: normaliseTestimonials(raw.testimonials) } : {}),
   };
 }
 

@@ -45,6 +45,7 @@ I also rejected **chat onboarding**: 5+ turns means 5× the AI calls and a drop-
 | **AI price → per-format band → Indian price point**, shown with a reason and the typical range | LLMs drift (₹523, or ₹20,000 ebooks); the reason and range build trust | Bands are my judgement, not sales data |
 | Always one entry offer (≤₹499), formats must differ; duplicate or single-format sets are rejected and retried | The first impulse sale is the real activation; distinct offers feel like a business | Can under-price premium creators, who can edit or ask for "more premium" |
 | **Profile picture + cover: upload first, AI as the backup.** The AI cover is built from the creator's own description and name, never shows a face or text, and is labelled | A real photo builds the most trust; an empty banner looks unfinished. Image models need a paid key, so a free key gets an AI-*designed* cover (palette + subject motif) instead of failing | Designed covers are abstract; photo-style needs billing on the Gemini key |
+| **Testimonials are creator-written; AI only tidies a real pasted message**, and each needs a consent tick to go live | AI-invented reviews would mislead buyers and break India's fake-review rules and the FTC's ban | Empty section for brand-new creators (hidden until they add one; a WhatsApp ask link helps) |
 | **Buttons go to real destinations**: payment link → WhatsApp enquiry → Instagram → website | No dead ends and no fake checkout; most Indian micro-creators already sell over WhatsApp | Payment isn't processed inside the product |
 | Regenerate one part; undo every AI change; full rewrites need confirmation; regeneration never writes to the database | Creators like most of what they get; experimenting must be safe | More prompts to maintain |
 | No accounts: a private edit link (key hashed, kept in the URL fragment) | Sign-up before value kills activation | Lose the link, lose edit access; OTP is next |
@@ -66,7 +67,7 @@ I also rejected **chat onboarding**: 5+ turns means 5× the AI calls and a drop-
   - A hidden snapshot of each AI suggestion, used to measure edits.
 - **Screenshot reading:** the same call takes up to 3 images and returns what it read (handle, audience band, summary). Unreadable images get a plain ask to retry or describe; the summary is saved and reused by later regenerations.
 - **Failure handling:** 3 attempts within the 60s function budget; on 503/429 or a timeout it alternates primary (`3.5-flash-lite`) and fallback (`3.6-flash`, minimal thinking, capped at 20s) with backoff; malformed JSON is retried. Every failure becomes a plain message with Try again and the input kept.
-- **Evidence:** 50 API tests and 63 browser checks (fake model for forced failures), live production smoke tests with real Gemini, and a 30-creator evaluation run against production (`docs/AI_EVALUATION.md`).
+- **Evidence:** 52 API tests and 70 browser checks (fake model for forced failures), live production smoke tests with real Gemini, and a 30-creator evaluation run against production (`docs/AI_EVALUATION.md`).
 
 ## 6. Success metrics (implemented as events; targets are proposals, not results)
 

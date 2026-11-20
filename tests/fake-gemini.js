@@ -64,6 +64,15 @@ export function startFakeGemini(port = 0) {
       globalThis.__lastImagePrompt = prompt;
       return res.end(JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ inlineData: { mimeType: 'image/png', data: 'iVBORw0KGgoAAAANSUhEUgAAACoAAAASCAIAAACiiNvMAAAFcUlEQVR4nAXBEexCQQDA4aPov90WRRdF7UGUvEVRJ1nbb4uio6wdRMllUU+i4JZFR1HbQZRcFLUnUfAWZff/PiEELcGfoC3oCLqCnqAvGAiGgpFgLJgIpoKZYC5YCIxgKVgJ1oKNYCvYCfaCg+AoOAnOgiC4CK6Cm+AueAiegpfgLfgIvoKfIAuEkLQkf5K2pCPpSnqSvmQgGUpGkrFkIplKZpK5ZCExkqVkJVlLNpKtZCfZSw6So+QkOUuC5CK5Sm6Su+QheUpekrfkI/lKfpIsEULRUvwp2oqOoqvoKfqKgWKoGCnGioliqpgp5oqFwiiWipVirdgotoqdYq84KI6Kk+KsCIqL4qq4Ke6Kh+KpeCneio/iq/gpskKIglbBX0G7oFPQLegV9AsGBcOCUcG4YFIwLZgVzAsWBaZgWbAqWBdsCrYFu4J9waHgWHAqOBeEgkvBteBWcC94FDwLXgXvgk/Bt+BXkAuEKGmV/JW0Szol3ZJeSb9kUDIsGZWMSyYl05JZybxkUWJKliWrknXJpmRbsivZlxxKjiWnknNJKLmUXEtuJfeSR8mz5FXyLvmUfEt+JblECE1L86dpazqarqan6WsGmqFmpBlrJpqpZqaZaxYao1lqVpq1ZqPZanaaveagOWpOmrMmaC6aq+amuWsemqfmpXlrPpqv5qfJGiGgBX/Qhg50oQd9GMAQRjCGCUxhBnNYgIElrGANG9jCDvZwgCOc4AwBLnCFG9zhAU94wRs+8IUfZBDC0DL8GdqGjqFr6Bn6hoFhaBgZxoaJYWqYGeaGhcEYloaVYW3YGLaGnWFvOBiOhpPhbAiGi+FquBnuhofhaXgZ3oaP4Wv4GbJBCEvL8mdpWzqWrqVn6VsGlqFlZBlbJpapZWaZWxYWY1laVpa1ZWPZWnaWveVgOVpOlrMlWC6Wq+VmuVselqflZXlbPpav5WfJFiEcLcefo+3oOLqOnqPvGDiGjpFj7Jg4po6ZY+5YOIxj6Vg51o6NY+vYOfaOg+PoODnOjuC4OK6Om+PueDiejpfj7fg4vo6fIzuEqGhV/FW0KzoV3YpeRb9iUDGsGFWMKyYV04pZxbxiUWEqlhWrinXFpmJbsavYVxwqjhWninNFqLhUXCtuFfeKR8Wz4lXxrvhUfCt+FblCCE/L8+dpezqerqfn6XsGnqFn5Bl7Jp6pZ+aZexYe41l6Vp61Z+PZenaevefgOXpOnrMneC6eq+fmuXsenqfn5Xl7Pp6v5+fJHiECrcBfoB3oBLqBXqAfGASGgVFgHJgEpoFZYB5YBExgGVgF1oFNYBvYBfaBQ+AYOAXOgRC4BK6BW+AeeASegVfgHfgEvoFfIAeEiLQif5F2pBPpRnqRfmQQGUZGkXFkEplGZpF5ZBExkWVkFVlHNpFtZBfZRw6RY+QUOUdC5BK5Rm6Re+QReUZekXfkE/lGfpEcESLRSvwl2olOopvoJfqJQWKYGCXGiUlimpgl5olFwiSWiVVindgktoldYp84JI6JU+KcCIlL4pq4Je6JR+KZeCXeiU/im/glckKImlbNX027plPTrenV9GsGNcOaUc24ZlIzrZnVzGsWNaZmWbOqWddsarY1u5p9zaHmWHOqOdeEmkvNteZWc6951DxrXjXvmk/Nt+ZXk2uEaGg1/DW0GzoN3YZeQ79h0DBsGDWMGyYN04ZZw7xh0WAalg2rhnXDpmHbsGvYNxwajg2nhnNDaLg0XBtuDfeGR8Oz4dXwbvg0fBt+DblBiEwr85dpZzqZbqaX6WcGmWFmlBlnJplpZpaZZxYZk1lmVpl1ZpPZZnaZfeaQOWZOmXMmZC6Za+aWuWcemWfmlXlnPplv5pfJmX/cuvmalvNLTgAAAABJRU5ErkJggg==' } }] } }] }));
     }
+    // Testimonial tidy-up: echo the original, cleaned. FAKE_TIDY_INVENT adds a result that wasn't there.
+    if (prompt.includes('Turn it into a short testimonial')) {
+      const orig = (prompt.match(/Original message: """([\s\S]*?)"""/) || [])[1] || '';
+      let quote = orig.replace(/^(hi|hello|hey)[^a-z]*(ma'?am|sir|di|didi)?[,! ]*/i, '').replace(/FAKE_TIDY_INVENT/g, '').trim();
+      quote = quote.charAt(0).toUpperCase() + quote.slice(1);
+      if (orig.includes('FAKE_TIDY_INVENT')) quote += ' I lost 12 kg in 30 days!';
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({ quote }) }] } }] }));
+    }
     // AI cover fallback: palette + motif design (text model).
     if (prompt.includes('Design the colour palette')) {
       res.writeHead(200, { 'content-type': 'application/json' });

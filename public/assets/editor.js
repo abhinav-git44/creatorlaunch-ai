@@ -1,5 +1,5 @@
 import { api, ApiError, toast, openSheet, askInstruction, confirmSheet, saveEditKey, getEditKey, copyText } from './ui.js';
-import { FORMATS, ACCENTS, accentLight, LANGUAGES, TONES, LIMITS, MAX_PRICE, escapeHtml as e, formatInr, typicalRange, cleanUrl, cleanWhatsapp, cleanEmail, normaliseLinks, assetUrl, MAX_TESTIMONIALS, TESTIMONIAL_SOURCES, shortId } from './shared.js';
+import { FORMATS, ACCENTS, accentLight, LANGUAGES, TONES, LIMITS, MAX_PRICE, escapeHtml as e, formatInr, typicalRange, cleanUrl, cleanWhatsapp, cleanEmail, normaliseLinks, normaliseTheme, assetUrl, MAX_TESTIMONIALS, TESTIMONIAL_SOURCES, shortId } from './shared.js';
 import { TEMPLATES, TEMPLATE_IDS, FONTS, SECTIONS, applyTemplate, normaliseSections } from './templates.js';
 import { galleryHtml, mountGallery, thumbUrl } from './gallery.js';
 import { track, setEditKey } from './analytics.js';
@@ -40,6 +40,7 @@ async function load() {
   content = clone(store.content);
   content.links = content.links || { whatsapp: '', instagram: store.input?.handle || '', website: '', email: '' };
   content.tone = content.tone || store.input?.tone || 'friendly';
+  content.theme = normaliseTheme(content.theme);
   savedJson = JSON.stringify(content);
   app.setAttribute('aria-busy', 'false');
   $('#bottom-bar').hidden = false;

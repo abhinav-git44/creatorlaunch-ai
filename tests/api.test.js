@@ -3,7 +3,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { startFakeGemini } from './fake-gemini.js';
@@ -656,6 +656,19 @@ test('templates: all 10 save, persist and publish; switching keeps content; bad 
 
   const old = await call(`/api/stores/${id}`, { method: 'PATCH', key: editKey, body: { content: { ...content, theme: { style: 'bold', accent: 'rose' } } } });
   assert.deepEqual(old.json.content.theme, { style: 'bold', accent: 'rose', background: 'cream', font: 'sans', sections: { order: ['products', 'testimonials', 'contact'], hidden: [] } }, 'stores saved before templates keep their look');
+});
+
+test('stores saved before templates existed still open in the editor with full template settings', async () => {
+  const { id, editKey } = await makeStore();
+  const file = path.join(dataDir, 'db.json');
+  const db = JSON.parse(readFileSync(file, 'utf8'));
+  const row = db.stores.find((x) => x.id === id);
+  row.content.theme = { style: 'elegant', accent: 'rose' }; // the shape stores had before templates
+  delete row.content.links.email;
+  writeFileSync(file, JSON.stringify(db));
+  const r = await call(`/api/stores/${id}`, { key: editKey });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.content.theme, { style: 'elegant', accent: 'rose', background: 'linen', font: 'serif', sections: { order: ['products', 'testimonials', 'contact'], hidden: [] } });
 });
 
 test('AI cover: built from the description and name, returns an image; needs a description; failures are plain', async () => {

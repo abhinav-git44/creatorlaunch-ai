@@ -599,6 +599,22 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
     check(!msOverflow, 'My stores fits the phone screen');
     await home.locator('#my-stores').screenshot({ path: path.join(SHOTS, 'after-15-my-stores-phone.png') });
 
+    // ------------------------------------------------------------ 15. Stores saved before templates
+    console.log('15. Stores saved before the template update still open');
+    const legacyId = home.url().match(/\/edit\/([^#]+)/)?.[1] || (await home.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('cl_edit_keys') || '{}'))[0]));
+    const legacyKey = await home.evaluate((sid) => JSON.parse(localStorage.getItem('cl_edit_keys'))[sid].key, legacyId);
+    const dbFile = path.join(dataDir, 'db.json');
+    const dbj = JSON.parse(fs.readFileSync(dbFile, 'utf8'));
+    const lrow = dbj.stores.find((x) => x.id === legacyId);
+    lrow.content.theme = { style: 'bold', accent: 'rose' };
+    delete lrow.content.links.email;
+    fs.writeFileSync(dbFile, JSON.stringify(dbj));
+    const legacy = await (await browser.newContext(phoneCtx)).newPage();
+    watch(legacy);
+    await legacy.goto(`${BASE}/edit/${legacyId}#k=${encodeURIComponent(legacyKey)}`);
+    await legacy.waitForSelector('#sec-template', { timeout: 10000 });
+    check((await legacy.getAttribute('#sec-template [data-theme="bold"]', 'aria-pressed')) === 'true' && await legacy.isVisible('[data-link="email"]'), 'an old-format store opens in the editor with its template kept');
+
     check(errors.length === 0, `no browser errors or unexpected dialogs${errors.length ? ': ' + errors.join(' | ') : ''}`);
     console.log(`\nAll browser checks passed (${passed}).`);
   } catch (err) {

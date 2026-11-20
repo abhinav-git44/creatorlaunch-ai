@@ -134,6 +134,8 @@
   ✓ Edit opens that store in the editor
   ✓ store still listed (removing one entry only forgets that one)
   ✓ My stores fits the phone screen
+15. Stores saved before the template update still open
+  ✓ an old-format store opens in the editor with its template kept
   ✓ no browser errors or unexpected dialogs
 
-All browser checks passed (123).
+All browser checks passed (124).

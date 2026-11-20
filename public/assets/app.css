@@ -786,3 +786,4 @@ ol.dest li::before { content: counter(d); color: var(--brand-champagne); font-we
 @media (max-width: 400px) { .home-nav { gap: 10px; padding-left: 12px; padding-right: 12px; } .home-nav .nav-login { padding: 0 6px; } .home-nav .nav-cta { font-size: 14px; } }
 @media (max-width: 370px) { .home-nav { gap: 6px; } .home-nav .logo-word { font-size: 16px; } .home-nav .nav-cta { padding: 0 10px; font-size: 13.5px; } .home-nav .btn + .btn { margin-left: -2px; } }
 @media (max-width: 330px) { .home-nav .nav-login { display: none; } }
+@media (max-width: 520px) { .home-nav .nav-auth-txt { display: none; } .home-nav .nav-login { width: 40px; padding: 0 !important; } }

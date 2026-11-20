@@ -88,7 +88,7 @@
   ✓ unticking consent removes it from the public page
 13. Template library (10 free templates)
   ✓ no separate template section or nav link on the landing page
-  ✓ Log in (display only) explains accounts are coming soon, no dead end
+  ✓ one Log in / Sign up button (display only) explains accounts are coming soon, no dead end
   ✓ Browse templates opens a gallery of 10 templates
   ✓ every template is labelled Free
   ✓ all 10 thumbnails load

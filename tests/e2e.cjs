@@ -424,7 +424,7 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
     check(await home.isHidden('#templates') && !(await home.$('a[href="#templates"]')), 'no separate template section or nav link on the landing page');
     await home.click('.home-nav [data-auth="login"]');
     await home.waitForSelector('.sheet');
-    check((await home.textContent('.sheet h3')).includes('coming soon') && await home.isVisible('.sheet [data-go-create]'), 'Log in (display only) explains accounts are coming soon, no dead end');
+    check((await home.textContent('.sheet h3')).includes('Log in / Sign up') && (await home.textContent('.sheet h3')).includes('coming soon') && (await home.$$('.home-nav [data-auth]')).length === 1 && await home.isVisible('.sheet [data-go-create]'), 'one Log in / Sign up button (display only) explains accounts are coming soon, no dead end');
     await home.click('.sheet [data-auth-close]');
     await home.waitForFunction(() => !document.querySelector('.sheet'));
     await home.click('#tpl-pick-browse');

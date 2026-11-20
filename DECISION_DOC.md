@@ -44,8 +44,8 @@ I also rejected **chat onboarding**: 5+ turns means 5× the AI calls and a drop-
 | Description first, or **screenshots of your own Instagram profile**; never scraped | Scraping is blocked and against Instagram's terms. Screenshots give the AI the real bio, follower band and post themes; they aren't stored, the creator ticks "this is my account", and a handle that doesn't match the screenshot is rejected | Reads only what's visible; the official login is in §8 |
 | **AI price → per-format band → Indian price point**, shown with a reason and the typical range | LLMs drift (₹523, or ₹20,000 ebooks); the reason and range build trust | Bands are my judgement, not sales data |
 | Always one entry offer (≤₹499), formats must differ; duplicate or single-format sets are rejected and retried | The first impulse sale is the real activation; distinct offers feel like a business | Can under-price premium creators, who can edit or ask for "more premium" |
-| **Profile picture + cover: upload first, AI as the backup.** The AI cover is built from the creator's own description and name, never shows a face or text, and is labelled | A real photo builds the most trust; an empty banner looks unfinished. Image models need a paid key, so a free key gets an AI-*designed* cover (palette + subject motif) instead of failing | Designed covers are abstract; photo-style needs billing on the Gemini key |
-| **Testimonials are creator-written; AI only tidies a real pasted message**, and each needs a consent tick to go live | AI-invented reviews would mislead buyers and break India's fake-review rules and the FTC's ban | Empty section for brand-new creators (hidden until they add one; a WhatsApp ask link helps) |
+| **Photo + cover: upload, or AI cover as backup** (from their description and name; no faces or text) | An empty banner looks unfinished | A free Gemini key gets an AI-*designed* cover; photo-style needs billing |
+| **Testimonials: creator-added, consent-ticked; AI only tidies a pasted real message** | Invented reviews mislead buyers and break fake-review rules | New creators start with none |
 | **Buttons go to real destinations**: payment link → WhatsApp enquiry → Instagram → website | No dead ends and no fake checkout; most Indian micro-creators already sell over WhatsApp | Payment isn't processed inside the product |
 | Regenerate one part; undo every AI change; full rewrites need confirmation; regeneration never writes to the database | Creators like most of what they get; experimenting must be safe | More prompts to maintain |
 | No accounts: a private edit link (key hashed, kept in the URL fragment) | Sign-up before value kills activation | Lose the link, lose edit access; OTP is next |
@@ -54,7 +54,7 @@ I also rejected **chat onboarding**: 5+ turns means 5× the AI calls and a drop-
 
 ## 4. What I deliberately didn't build
 
-**Checkout** (SuperProfile has it; buttons route to the creator's own link), **accounts**, **Instagram scraping** (pasting a profile link can't work: Instagram blocks automated access), **AI images** (slow, easy to get wrong for real people), **a marketing page in front of the product** (the form is the first screen; how it works, examples and FAQ sit below it), **version history** (undo covers "I liked the old one"), **a fake multi-stage progress bar** (it's one call, so staged ticks would be invented).
+**Checkout** (SuperProfile has it; buttons route to the creator's own link), **accounts**, **Instagram scraping** (Instagram blocks automated access), **AI-written testimonials** (they'd be fake reviews), **a marketing page in front of the product** (the form is the first screen; explainers sit below it), **version history** (undo covers it), **a fake multi-step progress bar** (it's one AI call).
 
 ## 5. How the AI part works
 
@@ -92,4 +92,4 @@ A **"Build my store with AI"** card on the empty-store screen for new sign-ups, 
 4. **OTP login and native checkout**, so the guardrail metric becomes measurable.
 5. **Grow the eval set to ~100 creators, with human ratings**, run on every prompt change.
 
-**How I built it:** I made the product calls (input strategy, pricing guardrails, regeneration and destination model, metric definitions, cut list) and used Claude as the coding agent, reviewing and running everything. Live testing surfaced real issues that I then fixed: Gemini 503s (now a fallback model), CDN caching that delayed unpublish (now ≤30s), a fallback model that hung until the timeout, stale JS after a deploy, and a database response-parsing bug.
+**How I built it:** I made the product calls (inputs, pricing guardrails, what the AI may and may not write, metrics, cut list) and used Claude as the coding agent, reviewing and running everything. Live testing caught real bugs I fixed: Gemini 503s and a hanging fallback, slow unpublish caching, stale JS after deploys, a DB parsing bug, and image models unavailable on a free key.

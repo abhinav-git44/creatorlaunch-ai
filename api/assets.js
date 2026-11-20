@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { handler, allowMethods, readJson, sendJson, sendError, getQuery, rateLimit, sessionIdFrom } from '../lib/http.js';
 import { db } from '../lib/db.js';
 import { loadEditableStore } from '../lib/stores.js';
-import { parseAssetUpload } from '../lib/images.js';
+import { parseAssetUpload, DB_KIND } from '../lib/images.js';
 import { track } from '../lib/events.js';
 import { ASSET_ID_RE, assetUrl } from '../public/assets/shared.js';
 
@@ -32,7 +32,7 @@ export default handler(async (req, res) => {
   const body = await readJson(req, { maxBytes: 1.4 * 1024 * 1024 });
   const { kind, mime, bytes, source } = parseAssetUpload(body);
   const id = createHash('sha256').update(store.id).update(':').update(bytes).digest('hex').slice(0, 40);
-  await db.insertAsset({ id, store_id: store.id, kind, source, mime, bytes: bytes.length, data: bytes.toString('base64') });
+  await db.insertAsset({ id, store_id: store.id, kind: DB_KIND[kind], source, mime, bytes: bytes.length, data: bytes.toString('base64') });
   await track('image_added', { sessionId: sessionIdFrom(req), storeId: store.id, meta: { kind, source } });
   return sendJson(res, 201, { id, url: assetUrl(id) });
 });

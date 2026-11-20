@@ -71,6 +71,8 @@ details p{white-space:pre-line;opacity:.85;padding-top:2px}
 .tcard figcaption b{display:block;font-weight:700}
 .tcard figcaption span{opacity:.7;font-size:13px}
 @media (min-width:760px){.tgrid{grid-template-columns:repeat(2,1fr)}}
+.pimg{overflow:hidden;aspect-ratio:16/9;background:var(--accent-soft)}
+.pimg img{display:block;width:100%;height:100%;object-fit:cover}
 .badge{display:inline-block;font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:999px}
 footer{text-align:center;font-size:13px;padding:40px 18px 48px}
 footer .share{display:flex;gap:10px;justify-content:center;margin-bottom:18px;flex-wrap:wrap}
@@ -105,6 +107,7 @@ h1{font-size:clamp(25px,6vw,36px);line-height:1.18;letter-spacing:-.02em;font-we
 .cta{width:100%;background:var(--accent);color:#fff;border-radius:12px}
 .cta:hover{filter:brightness(1.08)}
 .badge{background:var(--accent-soft);color:var(--accent);margin-bottom:10px;align-self:flex-start}
+.pimg{margin:-22px -22px 16px;border-radius:17px 17px 0 0;border-bottom:1px solid #E7E8EC}
 footer{color:#5C5F6A}
 @media (min-width:760px){.products{grid-template-columns:repeat(2,1fr)}.products.one{grid-template-columns:minmax(0,520px);justify-content:center}}
 @media (min-width:1100px){.products.three{grid-template-columns:repeat(3,1fr)}}
@@ -136,7 +139,8 @@ h1{font-size:clamp(32px,9vw,54px);line-height:1.02;letter-spacing:-.035em;font-w
 .buy{margin-top:auto;padding-top:18px}
 .cta{width:100%;background:#111;color:#fff;border-radius:14px}
 .cta:hover{background:var(--accent)}
-.badge{position:absolute;top:-13px;left:18px;background:#FFD43B;color:#111;border:2px solid #111}
+.badge{position:absolute;top:-13px;left:18px;background:#FFD43B;color:#111;border:2px solid #111;z-index:2}
+.pimg{margin:-22px -22px 16px;border-radius:19px 19px 0 0;border-bottom:2.5px solid #111}
 footer{color:#333}
 @media (min-width:760px){.products{grid-template-columns:repeat(2,1fr);gap:24px}.hero{padding:56px 0 84px}}
 @media (min-width:1100px){.products.three{grid-template-columns:repeat(3,1fr)}}
@@ -171,6 +175,7 @@ h1{font-size:clamp(28px,7vw,40px);line-height:1.2;font-weight:400;letter-spacing
 .cta{display:inline-flex;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:999px;min-height:46px;padding:0 22px;font-weight:600;font-size:15px}
 .cta:hover{background:var(--accent);color:#fff}
 .badge{background:transparent;color:var(--accent);border:1px solid var(--accent);font-size:10px;letter-spacing:.18em;margin-bottom:8px}
+.pimg{margin-bottom:16px;border-radius:3px}
 footer{color:#8C7B68}
 .hero.has-cover{padding-top:0}.hero.has-cover .avatar{margin-top:-46px;background:#F6F1E9;box-shadow:0 0 0 5px #F6F1E9}.hero.has-cover .cover{max-height:300px}
 .tgrid{gap:0}.tcard{padding:22px 0;border-top:1px solid #DDD0BE}.tcard blockquote{font-family:var(--serif);font-style:italic;font-size:18px;line-height:1.55}.tcard blockquote:before{font-size:48px}.tcard figcaption b{font-family:var(--serif);font-weight:400;font-size:16px}@media (min-width:760px){.tgrid{grid-template-columns:1fr}}
@@ -192,7 +197,9 @@ function ctaFor(p, content, handle) {
   return { kind: 'info' };
 }
 
-function productHtml(p, i, content, handle, theme, entryId) {
+function productHtml(p, i, content, handle, theme, entryId, src) {
+  const imgSrc = src(p.cover);
+  const img = imgSrc ? `<div class="pimg"><img src="${e(imgSrc)}" alt="" width="1200" height="675" loading="lazy" decoding="async"></div>` : '';
   const cta = ctaFor(p, content, handle);
   const benefits = (p.benefits || []).map((b) => `<li>${e(b)}</li>`).join('');
   const label = e(p.ctaLabel || 'Get it now');
@@ -210,14 +217,14 @@ function productHtml(p, i, content, handle, theme, entryId) {
 
   if (theme === 'elegant') {
     return `<article class="card" id="p-${e(p.id)}"><span class="num" aria-hidden="true">${String(i + 1).padStart(2, '0')}</span>
-      <div class="card-body">${badge}<span class="format">${fmt}</span>
+      <div class="card-body">${img}${badge}<span class="format">${fmt}</span>
         <div class="card-top"><h3>${e(p.title)}</h3><span class="price">${price}</span></div>
         <p class="short">${e(p.shortDescription)}</p>
         ${benefits ? `<ul class="benefits">${benefits}</ul>` : ''}${details}
         <div class="buy">${button}</div>
       </div></article>`;
   }
-  return `<article class="card" id="p-${e(p.id)}">${badge}${head}
+  return `<article class="card" id="p-${e(p.id)}">${img}${badge}${head}
     <h3>${e(p.title)}</h3>
     <p class="short">${e(p.shortDescription)}</p>
     ${benefits ? `<ul class="benefits">${benefits}</ul>` : ''}${details}
@@ -290,7 +297,7 @@ export function renderStorefront(content, { handle = '', slug = '', baseUrl = ''
     if (paid.length > 1) entryId = paid.reduce((a, b) => (Number(b.priceInr) < Number(a.priceInr) ? b : a)).id;
   }
 
-  const items = products.map((p, i) => productHtml(p, i, content, handle, theme, entryId)).join('');
+  const items = products.map((p, i) => productHtml(p, i, content, handle, theme, entryId, src)).join('');
   const quotes = visibleTestimonials(content);
   const tTitle = theme === 'bold' ? '<h2 class="section-title" id="t-h"><span>What people say</span></h2>' : '<h2 class="section-title" id="t-h">What people say</h2>';
   const testimonials = quotes.length

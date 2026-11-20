@@ -256,6 +256,9 @@ export function normaliseProduct(p, { source = 'ai' } = {}) {
     buyUrl: source === 'user' ? cleanUrl(p.buyUrl, 'Payment link') : '',
     ...(priceAdjusted ? { priceGuarded: true } : {}),
   };
+  // Optional product cover image (an uploaded store_assets id). Only the creator sets it.
+  const cover = source === 'user' ? cleanAssetId(p.cover) : '';
+  if (cover) product.cover = cover;
   // Snapshot of what the AI suggested, kept so we can measure how much creators change
   // AI output before publishing (the "material edit" quality metric). Never rendered.
   if (source === 'ai') {

@@ -337,6 +337,28 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
     await ig.setInputFiles('#cover-file', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
     await ig.waitForSelector('.toast.error >> text=JPG, PNG or WebP');
     check(true, 'non-image file refused with a plain message');
+
+    // Product image: upload on the first product, check preview, remove + undo.
+    const firstPid = await ig.getAttribute('#sec-products .product', 'data-pid');
+    await ig.setInputFiles(`#pf-${firstPid}`, { name: 'product.png', mimeType: 'image/png', buffer: screenshot });
+    await ig.waitForSelector(`#pi-${firstPid} .pimg-box img`);
+    check(await ig.isVisible(`#pi-${firstPid} [data-action="remove-pimg"]`), 'product image uploaded and shown on that product in the editor');
+    check((await ig.$$('.pimg-box img')).length === 1, 'other products stay without an image');
+    await ig.click(`#pi-${firstPid} [data-action="remove-pimg"]`);
+    await ig.waitForSelector(`#pi-${firstPid} .pimg-box img`, { state: 'detached' });
+    await ig.click('.toast >> text=Undo');
+    await ig.waitForSelector(`#pi-${firstPid} .pimg-box img`);
+    check(true, 'removing a product image can be undone');
+    await ig.click('#bottom-bar [data-action="preview"]');
+    const pf2 = await (await ig.waitForSelector('#preview-mobile')).contentFrame();
+    await pf2.waitForSelector(`#p-${firstPid} .pimg img`);
+    await ig.waitForTimeout(600);
+    check(await pf2.$eval(`#p-${firstPid} .pimg img`, (i) => i.complete && i.naturalWidth > 0), 'live preview shows the product image');
+    await ig.keyboard.press('Escape');
+    await ig.click('.preview-overlay .preview-head button').catch(() => {});
+    await ig.waitForSelector('#preview-mobile', { state: 'detached' }).catch(() => {});
+    await ig.waitForSelector('#save-status.ok', { timeout: 10000 }).catch(() => {});
+    await ig.waitForTimeout(1500);
     await ig.click('#bottom-bar [data-action="publish"]');
     await ig.waitForSelector('.sheet');
     await ig.fill('.sheet input', `pics-${Date.now().toString(36)}`);
@@ -348,6 +370,7 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
     await pub.goto(liveUrl);
     const imgs = await pub.$$eval('.hero img', (els) => els.map((i) => i.complete && i.naturalWidth > 0));
     check(imgs.length === 2 && imgs.every(Boolean), 'public storefront shows the cover and the profile picture');
+    check(await pub.$eval(`#p-${firstPid} .pimg img`, (i) => i.complete && i.naturalWidth > 0).catch(() => false), 'public storefront shows the product image on that product');
     await ig.click('.sheet >> text=Keep editing');
     await ig.waitForSelector('.sheet', { state: 'detached' });
     for (const theme of ['bold', 'elegant']) {
@@ -355,6 +378,8 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
       await ig.waitForTimeout(2200); // autosave
       await pub.goto(liveUrl);
       const ok = await pub.$$eval('.hero img', (els) => els.length === 2 && els.every((i) => i.complete && i.naturalWidth > 0));
+      const pok = await pub.$eval(`#p-${firstPid} .pimg img`, (i) => i.complete && i.naturalWidth > 0).catch(() => false);
+      check(pok, `${theme} theme shows the product image`);
       const noOverflow = await pub.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
       check(ok && noOverflow, `${theme} theme shows both images with no horizontal overflow`);
       await shot(pub, `after-13-storefront-images-${theme}-phone`, true);

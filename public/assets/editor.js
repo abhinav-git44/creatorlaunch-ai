@@ -163,7 +163,7 @@ async function cropToJpeg(src, w, h, quality) {
   g.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, 0, 0, w, h);
   return canvas.toDataURL('image/jpeg', quality).split(',')[1];
 }
-const SIZES = { avatar: [512, 512, 0.86], cover: [1600, 600, 0.82] };
+const SIZES = { avatar: [512, 512, 0.86], cover: [1600, 600, 0.82], product: [1200, 675, 0.82] };
 
 // The preview iframe is sandboxed (no same-origin), so it can't load /api/assets/…; hand it
 // data: URLs instead. Freshly uploaded images are cached straight away; older ones are fetched once.
@@ -205,8 +205,49 @@ function restoreImages(prev) {
   renderAll(); updatePreview(); scheduleSave();
 }
 
+async function onPickProductImage(input) {
+  const pid = input.closest('[data-pid]')?.dataset.pid;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file || !pid) return;
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { toast('Use a JPG, PNG or WebP image.', { type: 'error' }); return; }
+  if (file.size > 15 * 1024 * 1024) { toast('That image is over 15 MB. Try a smaller one.', { type: 'error' }); return; }
+  const section = `up-product-${pid}`;
+  if (busy.has(section)) return;
+  busy.add(section); renderAll();
+  try {
+    const assetId = await uploadImage('product', await fileToDataUrl(file));
+    busy.delete(section);
+    const p = content.products.find((x) => x.id === pid);
+    if (!p) { renderAll(); return; } // product deleted while uploading
+    const prev = p.cover;
+    p.cover = assetId;
+    renderAll(); updatePreview(); scheduleSave();
+    toast('Product image added.', { action: prev ? () => setProductImage(pid, prev) : undefined });
+  } catch (err) {
+    busy.delete(section); renderAll();
+    toast(err instanceof ApiError ? err.message : 'We couldn\'t read that image. Try another one.', { type: 'error' });
+  }
+}
+
+function setProductImage(pid, assetId) {
+  const p = content.products.find((x) => x.id === pid);
+  if (!p) return;
+  if (assetId) p.cover = assetId; else delete p.cover;
+  renderAll(); updatePreview(); scheduleSave();
+}
+
+function removeProductImage(pid) {
+  const p = content.products.find((x) => x.id === pid);
+  if (!p?.cover) return;
+  const prev = p.cover;
+  setProductImage(pid, '');
+  toast('Product image removed.', { action: () => setProductImage(pid, prev) });
+}
+
 async function onPickImage(input) {
   const kind = input.dataset.upload;
+  if (kind === 'product') return onPickProductImage(input);
   const file = input.files?.[0];
   input.value = '';
   if (!file) return;
@@ -267,6 +308,25 @@ function profileCard() {
   </section>`;
 }
 
+// Optional cover image per product, uploaded by the creator and shown at the top of its card.
+function productImageBlock(p) {
+  const pid = e(p.id);
+  const src = assetUrl(p.cover);
+  const uploading = busy.has(`up-product-${p.id}`);
+  return `<div class="field" id="pi-${pid}">
+    <span class="label">Product image <span class="optional">(optional)</span></span>
+    <div class="pimg-box">
+      ${src ? `<img src="${e(src)}" alt="Image for ${e(p.title)}">` : '<div class="cover-state">No image yet. A cover makes this product stand out on your store.</div>'}
+    </div>
+    <div class="media-actions">
+      <label class="btn btn-secondary" for="pf-${pid}" ${uploading ? 'aria-disabled="true"' : ''}>${uploading ? '<span class="spin"></span>Uploading…' : src ? 'Replace image' : 'Upload image'}</label>
+      <input type="file" id="pf-${pid}" class="sr-only" accept="image/jpeg,image/png,image/webp" data-upload="product" ${uploading ? 'disabled' : ''}>
+      ${src && !uploading ? '<button type="button" class="btn btn-ghost" data-action="remove-pimg">Remove</button>' : ''}
+    </div>
+    <p class="hint">Shown at the top of this product. A wide image (16:9) works best. Use an image you own.</p>
+  </div>`;
+}
+
 function productCard(p, i) {
   const formats = Object.entries(FORMATS).map(([k, f]) => `<option value="${k}" ${k === p.format ? 'selected' : ''}>${e(f.label)}</option>`).join('');
   const isBusy = busy.has(p.id);
@@ -279,6 +339,7 @@ function productCard(p, i) {
         <button type="button" class="btn btn-danger" data-action="delete-product" aria-label="Delete product ${i + 1}">Delete</button>
       </span>
     </div>
+    ${productImageBlock(p)}
     <div class="field"><label for="t-${e(p.id)}">Title</label><input id="t-${e(p.id)}" type="text" data-pf="title" maxlength="${LIMITS.title}" value="${e(p.title)}"></div>
     <div class="field"><label for="fm-${e(p.id)}">Format</label><select id="fm-${e(p.id)}" data-pf="format">${formats}</select></div>
     <div class="field">
@@ -715,7 +776,7 @@ async function regenProduct(pid) {
     if (idx === -1) return;
     const prev = clone(content.products[idx]);
     content.products[idx] = res.product;
-    toast('New product idea added.', { action: () => { const i = content.products.findIndex((x) => x.id === pid); if (i !== -1) content.products[i] = prev; renderAll(); updatePreview(); scheduleSave(); } });
+    toast(prev.cover ? 'New product idea added. Its old image was removed; upload one that fits.' : 'New product idea added.', { action: () => { const i = content.products.findIndex((x) => x.id === pid); if (i !== -1) content.products[i] = prev; renderAll(); updatePreview(); scheduleSave(); } });
   });
 }
 
@@ -864,6 +925,7 @@ document.addEventListener('click', (ev) => {
       case 't-add': case 't-delete': case 't-up': case 't-down': case 't-tidy': case 't-use': case 't-keep': return testimonialAction(action, t);
       case 'remove-cover': return removeImage('cover');
       case 'remove-avatar': return removeImage('avatar');
+      case 'remove-pimg': return removeProductImage(pid);
       case 'publish': return publishSheet();
       case 'unpublish': return unpublish();
       case 'preview': return content && openMobilePreview();

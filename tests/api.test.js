@@ -592,6 +592,32 @@ test('image ids that are not ours are dropped on save; bad uploads are refused',
   assert.equal((await fetch(`${BASE}/api/assets/not-an-id`)).status, 404);
 });
 
+test('product image: uploaded per product, kept on save, shown on that product card; AI output never sets one', async () => {
+  const { id, editKey, content } = await makeStore();
+  const up = await call(`/api/stores/${id}/assets`, { method: 'POST', key: editKey, body: { kind: 'product', mime: 'image/jpeg', data: JPEG } });
+  assert.equal(up.status, 201, up.text);
+  const [first, ...rest] = content.products;
+  const withImg = { ...content, products: [{ ...first, cover: up.json.id }, { ...rest[0], cover: 'javascript:alert(1)' }, ...rest.slice(1)] };
+  const p = await call(`/api/stores/${id}`, { method: 'PATCH', key: editKey, body: { content: withImg } });
+  assert.equal(p.status, 200, p.text);
+  assert.equal(p.json.content.products[0].cover, up.json.id, 'image kept on the product');
+  assert.equal(p.json.content.products[1].cover, undefined, 'a bad image id is dropped');
+
+  const pub = await call(`/api/stores/${id}/publish`, { method: 'POST', key: editKey, body: { slug: `pimg-${Date.now().toString(36)}` } });
+  assert.equal(pub.status, 200, pub.text);
+  const page = await call(`/s/${pub.json.slug}`);
+  const card = page.text.slice(page.text.indexOf(`id="p-${first.id}"`));
+  assert.match(card.slice(0, 600), new RegExp(`class="pimg"><img src="[^"]*/api/assets/${up.json.id}"`), 'image at the top of that product card');
+  assert.equal((page.text.match(/class="pimg"/g) || []).length, 1, 'only the product with an image gets one');
+
+  const big = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(720 * 1024)]).toString('base64');
+  assert.equal((await call(`/api/stores/${id}/assets`, { method: 'POST', key: editKey, body: { kind: 'product', mime: 'image/jpeg', data: big } })).status, 413, 'product image size cap');
+
+  const r = await call('/api/regenerate', { method: 'POST', key: editKey, body: { id, target: 'product', productId: first.id } });
+  assert.equal(r.status, 200, r.text);
+  assert.equal(r.json.product.cover, undefined, 'a new AI product idea carries no image');
+});
+
 test('AI cover: built from the description and name, returns an image; needs a description; failures are plain', async () => {
   const { id, editKey } = await makeStore({ description: 'I teach watercolour painting to college students who want a calm weekend hobby.' });
   const r = await call(`/api/stores/${id}/cover`, { method: 'POST', key: editKey, body: {} });

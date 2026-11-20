@@ -562,6 +562,43 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
       check(good, `${tid}: public page renders on phone (360px) and desktop (1440px) with no overflow`);
     }
 
+    // ------------------------------------------------------------ 14. My stores
+    console.log('14. My stores (home page list of stores made in this browser)');
+    const fresh = await (await browser.newContext(phoneCtx)).newPage();
+    watch(fresh);
+    await fresh.goto(BASE + '/');
+    check(await fresh.isHidden('#my-stores') && await fresh.isHidden('#continue'), 'no stores in this browser: no list, no button');
+    await home.evaluate(() => {
+      const all = JSON.parse(localStorage.getItem('cl_edit_keys') || '{}');
+      all['00000000-0000-4000-8000-000000000000'] = { key: 'not-a-real-key', at: 1 };
+      localStorage.setItem('cl_edit_keys', JSON.stringify(all));
+    });
+    await home.goto(BASE + '/');
+    await home.waitForSelector('#my-stores:not([hidden]) .ms-card:not(.ms-loading)');
+    await home.waitForFunction(() => !document.querySelector('#ms-list .ms-loading'));
+    check((await home.textContent('#continue')).startsWith('My stores ('), 'header shows a "My stores" button with the count');
+    const ms = home.locator('#ms-list .ms-card', { hasText: 'Asha Rao' });
+    check(await ms.count() === 1, 'the store made earlier is listed with its name');
+    check((await ms.locator('.ms-status').textContent()) === 'Live' && (await ms.locator('.ms-meta').textContent()).includes('Elite Gold'), 'shows Live status and its template');
+    const viewHref = await ms.locator('text=View live').getAttribute('href');
+    check(viewHref.startsWith('/s/tpl-'), 'View live links to the public page');
+    const bad = home.locator('#ms-list .ms-bad');
+    check((await bad.count()) === 1 && (await bad.textContent()).includes("can't be opened"), 'a saved link that no longer works is explained, not broken');
+    await bad.locator('[data-forget]').click();
+    await home.click('.sheet [data-go], .sheet .btn-primary');
+    await home.waitForFunction(() => !document.querySelector('#ms-list .ms-bad'));
+    check(true, 'Remove from list forgets it (after confirming)');
+    await ms.getByRole('link', { name: 'Edit', exact: true }).click();
+    await home.waitForURL(/\/edit\//);
+    await home.waitForSelector('#sec-template');
+    check((await home.inputValue('[data-bind="creator.displayName"]')) === 'Asha Rao', 'Edit opens that store in the editor');
+    await home.goto(BASE + '/');
+    await home.waitForSelector('#ms-list .ms-card:not(.ms-loading)');
+    check(await home.isVisible('#ms-list .ms-card >> text=Asha Rao'), 'store still listed (removing one entry only forgets that one)');
+    const msOverflow = await home.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+    check(!msOverflow, 'My stores fits the phone screen');
+    await home.locator('#my-stores').screenshot({ path: path.join(SHOTS, 'after-15-my-stores-phone.png') });
+
     check(errors.length === 0, `no browser errors or unexpected dialogs${errors.length ? ': ' + errors.join(' | ') : ''}`);
     console.log(`\nAll browser checks passed (${passed}).`);
   } catch (err) {

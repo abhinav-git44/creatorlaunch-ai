@@ -1,6 +1,6 @@
-import { api, ApiError, saveEditKey, lastStore } from './ui.js';
+import { api, ApiError, saveEditKey, savedStores, forgetStore, confirmSheet } from './ui.js';
 import { track } from './analytics.js';
-import { checkCreatorInput, checkHandle, AUDIENCE_SIZES } from './shared.js';
+import { checkCreatorInput, checkHandle, AUDIENCE_SIZES, escapeHtml } from './shared.js';
 import { TEMPLATES, applyTemplate } from './templates.js';
 import { galleryHtml, mountGallery, dataUrlFor, thumbUrl } from './gallery.js';
 import { sampleContent, SAMPLE_IMAGES } from './template-samples.js';
@@ -128,6 +128,7 @@ function show(view) {
   for (const id of ['form', 'generating', 'clarify', 'failed']) $(`#${id}`).hidden = id !== view;
   $('#hero').hidden = view !== 'form';
   $('#templates').hidden = view !== 'form';
+  $('#my-stores').hidden = view !== 'form' || !savedStores().length;
   document.querySelectorAll('.land').forEach((el) => { el.hidden = view !== 'form'; });
   window.scrollTo({ top: 0, behavior: 'smooth' });
   document.querySelector('.home-nav .nav-cta')?.toggleAttribute('hidden', view !== 'form');
@@ -272,12 +273,75 @@ buildChips();
 loadDraft();
 syncControls();
 
-const last = lastStore();
-if (last) {
-  const c = $('#continue');
-  c.hidden = false;
-  c.href = `/edit/${last.id}#k=${encodeURIComponent(last.key)}`;
+// ---------------------------------------------------------------- my stores
+// Lists every store this browser has an edit link for. Each is loaded with its own key, so the
+// list shows the real name, status and link; stores that no longer open can be removed.
+function ago(ts) {
+  const d = (Date.now() - new Date(ts).getTime()) / 1000;
+  if (!Number.isFinite(d) || d < 0) return '';
+  if (d < 90) return 'just now';
+  if (d < 3600) return `${Math.round(d / 60)} min ago`;
+  if (d < 86400) return `${Math.round(d / 3600)} h ago`;
+  if (d < 86400 * 30) return `${Math.round(d / 86400)} days ago`;
+  return new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
+
+function storeCard(s, data, problem) {
+  const editHref = `/edit/${s.id}#k=${encodeURIComponent(s.key)}`;
+  if (problem) {
+    return `<article class="ms-card ms-bad" data-sid="${s.id}"><div class="ms-thumb ms-blank" aria-hidden="true">?</div>
+      <div class="ms-body"><h3>${problem === 'gone' ? 'This store can\'t be opened' : 'Couldn\'t load this store'}</h3>
+      <p class="ms-meta">${problem === 'gone' ? 'It may have been deleted, or its saved link is no longer valid.' : 'Check your connection and reload the page.'}</p>
+      <div class="ms-actions">${problem === 'gone' ? '' : `<a class="btn btn-secondary" href="${editHref}">Try opening</a>`}<button type="button" class="btn btn-ghost" data-forget>Remove from list</button></div></div></article>`;
+  }
+  const c = data.content || {};
+  const live = data.status === 'published' && data.slug;
+  const style = TEMPLATES[c.theme?.style] ? c.theme.style : 'minimal';
+  return `<article class="ms-card" data-sid="${s.id}">
+    <img class="ms-thumb" src="${thumbUrl(style)}" alt="" width="390" height="520" loading="lazy">
+    <div class="ms-body">
+      <div class="ms-top"><h3>${escapeHtml(c.creator?.displayName || 'Untitled store')}</h3><span class="ms-status ${live ? 'live' : 'draft'}">${live ? 'Live' : 'Draft'}</span></div>
+      <p class="ms-headline">${escapeHtml(c.creator?.headline || '')}</p>
+      <p class="ms-meta">${(c.products || []).length} products · ${escapeHtml(TEMPLATES[style].name)}${data.updatedAt ? ` · edited ${ago(data.updatedAt)}` : ''}${live ? ` · /s/${escapeHtml(data.slug)}` : ''}</p>
+      <div class="ms-actions">
+        <a class="btn btn-primary" href="${editHref}">Edit</a>
+        ${live ? `<a class="btn btn-secondary" href="/s/${encodeURIComponent(data.slug)}" target="_blank" rel="noopener">View live</a>` : ''}
+        <button type="button" class="btn btn-ghost" data-forget>Remove from list</button>
+      </div>
+    </div></article>`;
+}
+
+async function renderMyStores() {
+  const list = savedStores().slice(0, 20);
+  const sec = $('#my-stores');
+  const cont = $('#continue');
+  cont.hidden = !list.length;
+  if (list.length) cont.textContent = `My stores (${list.length})`;
+  sec.hidden = !list.length;
+  if (!list.length) return;
+  $('#ms-list').innerHTML = list.map((s) => `<article class="ms-card ms-loading" data-sid="${s.id}"><div class="ms-thumb ms-blank"></div><div class="ms-body"><h3>Loading…</h3></div></article>`).join('');
+  await Promise.all(list.map(async (s) => {
+    let html;
+    try {
+      const data = await api(`/api/stores/${encodeURIComponent(s.id)}`, { key: s.key, timeoutMs: 15000 });
+      html = storeCard(s, data);
+    } catch (err) {
+      html = storeCard(s, null, err instanceof ApiError && err.status === 404 ? 'gone' : 'offline');
+    }
+    const el = document.querySelector(`#ms-list [data-sid="${s.id}"]`);
+    if (el) el.outerHTML = html;
+  }));
+}
+
+$('#ms-list').addEventListener('click', async (ev) => {
+  if (!ev.target.closest('[data-forget]')) return;
+  const sid = ev.target.closest('[data-sid]').dataset.sid;
+  const yes = await confirmSheet({ title: 'Remove this store from the list?', sub: 'This only forgets it on this device. The store itself (and its live page, if published) is not deleted. Keep its Edit link if you want to open it again.', confirmLabel: 'Remove from list' });
+  if (!yes) return;
+  forgetStore(sid);
+  renderMyStores();
+});
+renderMyStores();
 
 document.querySelector('.segmented').addEventListener('click', (e) => {
   const b = e.target.closest('[data-mode]');

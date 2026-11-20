@@ -123,6 +123,17 @@
   ✓ lifestyle: public page renders on phone (360px) and desktop (1440px) with no overflow
   ✓ spotlight: public page renders on phone (360px) and desktop (1440px) with no overflow
   ✓ elite: public page renders on phone (360px) and desktop (1440px) with no overflow
+14. My stores (home page list of stores made in this browser)
+  ✓ no stores in this browser: no list, no button
+  ✓ header shows a "My stores" button with the count
+  ✓ the store made earlier is listed with its name
+  ✓ shows Live status and its template
+  ✓ View live links to the public page
+  ✓ a saved link that no longer works is explained, not broken
+  ✓ Remove from list forgets it (after confirming)
+  ✓ Edit opens that store in the editor
+  ✓ store still listed (removing one entry only forgets that one)
+  ✓ My stores fits the phone screen
   ✓ no browser errors or unexpected dialogs
 
-All browser checks passed (113).
+All browser checks passed (123).

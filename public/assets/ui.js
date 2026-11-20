@@ -156,6 +156,23 @@ export function saveEditKey(id, key) {
 export function getEditKey(id) {
   try { return JSON.parse(localStorage.getItem(KEYS) || '{}')[id]?.key || null; } catch { return null; }
 }
+// Every store this browser has an edit link for, newest first. Only this browser knows them:
+// there are no accounts, and the server keeps edit keys hashed.
+export function savedStores() {
+  try {
+    return Object.entries(JSON.parse(localStorage.getItem(KEYS) || '{}'))
+      .filter(([sid, v]) => /^[0-9a-f-]{36}$/i.test(sid) && typeof v?.key === 'string')
+      .sort((a, b) => (b[1].at || 0) - (a[1].at || 0))
+      .map(([sid, v]) => ({ id: sid, key: v.key, at: v.at || 0 }));
+  } catch { return []; }
+}
+export function forgetStore(id) {
+  try {
+    const all = JSON.parse(localStorage.getItem(KEYS) || '{}');
+    delete all[id];
+    localStorage.setItem(KEYS, JSON.stringify(all));
+  } catch { /* ignore */ }
+}
 export function lastStore() {
   try {
     const all = Object.entries(JSON.parse(localStorage.getItem(KEYS) || '{}'));

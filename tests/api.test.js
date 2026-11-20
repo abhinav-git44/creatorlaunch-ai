@@ -607,13 +607,18 @@ test('AI cover: built from the description and name, returns an image; needs a d
 
   const blocked = await makeStore({ description: 'FAKE_IMG_BLOCK I teach something the image model refuses to draw.' });
   const b = await call(`/api/stores/${blocked.id}/cover`, { method: 'POST', key: blocked.editKey, body: {} });
-  assert.equal(b.status, 422);
-  assert.match(b.json.error.message, /Upload your own image/);
+  assert.equal(b.status, 200, 'image model refused the topic: falls back to a designed cover');
+  assert.equal(b.json.style, 'design');
 
   const missing = await makeStore({ description: 'FAKE_IMG_404 I teach guitar to beginners who want to play songs fast.' });
   const m = await call(`/api/stores/${missing.id}/cover`, { method: 'POST', key: missing.editKey, body: {} });
-  assert.equal(m.status, 503, 'every image model unavailable');
-  assert.match(m.json.error.message, /aren't available right now/);
+  assert.equal(m.status, 200, 'no image model available: the text AI designs the cover instead');
+  assert.equal(m.json.style, 'design');
+  assert.equal(m.json.image.mime, 'image/svg+xml');
+  const svg = Buffer.from(m.json.image.data, 'base64').toString();
+  assert.match(svg, /^<svg[^>]+width="1600" height="600"/);
+  assert.ok(svg.includes('#1E293B') && svg.includes('#F59E0B'), 'uses the palette the AI picked');
+  assert.ok(!/<script|<text|<foreignObject|href=/i.test(svg), 'no script, text or external references');
 });
 
 test('AI cover is rate limited per visitor', async () => {

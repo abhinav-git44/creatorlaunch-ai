@@ -105,14 +105,14 @@ function imagesBlock() {
       <span class="label">Cover image <span class="optional">(optional)</span></span>
       <div class="cover-box${drawing ? ' drawing' : ''}">
         ${cover ? `<img src="${e(cover)}" alt="Your cover image">` : ''}
-        ${drawing ? '<div class="cover-state"><span class="spin"></span>Drawing a cover from what you do… about 15 seconds</div>'
+        ${drawing ? '<div class="cover-state"><span class="spin"></span>Creating a cover from what you do… up to 20 seconds</div>'
           : !cover ? '<div class="cover-state">No cover yet. Upload one, or let AI draw one for you.</div>' : ''}
         ${cover && c.coverAi ? '<span class="ai-badge">AI-generated</span>' : ''}
       </div>
       <div class="media-actions">
         <label class="btn btn-secondary" for="cover-file" ${drawing || uploading('cover') ? 'aria-disabled="true"' : ''}>${uploading('cover') ? '<span class="spin"></span>Uploading…' : cover ? 'Replace' : 'Upload cover'}</label>
         <input type="file" id="cover-file" class="sr-only" accept="image/jpeg,image/png,image/webp" data-upload="cover" ${drawing ? 'disabled' : ''}>
-        <button type="button" class="btn btn-secondary" data-action="gen-cover" ${drawing || uploading('cover') ? 'disabled' : ''}>${ICON_SPARK}${cover && c.coverAi ? 'Draw another' : 'Generate with AI'}</button>
+        <button type="button" class="btn btn-secondary" data-action="gen-cover" ${drawing || uploading('cover') ? 'disabled' : ''}>${ICON_SPARK}${cover && c.coverAi ? 'Try another' : 'Generate with AI'}</button>
         ${cover && !drawing ? '<button type="button" class="btn btn-ghost" data-action="remove-cover">Remove</button>' : ''}
       </div>
       <p class="hint">A wide image (about 3:1) works best. No image? AI can draw one from your name and what you told us you do and who you help.</p>
@@ -217,7 +217,8 @@ async function generateCover() {
     const assetId = await uploadImage('cover', `data:${res.image.mime};base64,${res.image.data}`, 'ai');
     content.creator.cover = assetId;
     content.creator.coverAi = true;
-    toast(prev.cover ? 'New cover drawn.' : 'Cover drawn by AI. Keep it, draw another, or upload your own.', { action: () => restoreImages(prev) });
+    const msg = res.style === 'design' ? 'AI designed a cover from what you do.' : 'AI drew a cover from what you do.';
+    toast(`${msg} Keep it, try another, or upload your own.`, { action: () => restoreImages(prev) });
   });
 }
 

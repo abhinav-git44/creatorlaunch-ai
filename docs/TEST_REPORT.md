@@ -15,8 +15,8 @@ Every result below was produced by actually running the command or check; nothin
 | Suite | Command | Result |
 |---|---|---|
 | JavaScript syntax | `node --check` on all 32 source files | **32 / 32 OK** |
-| API tests | `npm test` (`node --test tests/*.test.js`) | **46 passed, 0 failed** (≈30 s) |
-| Browser E2E | `node tests/e2e.cjs` (Playwright + Chromium) | **53 checks passed, 0 failed** (log: `docs/e2e-run.log`) |
+| API tests | `npm test` (`node --test tests/*.test.js`) | **50 passed, 0 failed** (≈30 s) |
+| Browser E2E | `node tests/e2e.cjs` (Playwright + Chromium) | **63 checks passed, 0 failed** (log: `docs/e2e-run.log`) |
 | Secret scan | `grep -rnE "GEMINI_API_KEY\|SUPABASE_SERVICE_ROLE_KEY\|sb_secret" public/` | **No matches** (no secret names in browser code) |
 | Deploy config | `vercel.json` parsed as JSON; rewrites and headers mirrored by the dev server and exercised by tests | **Valid** |
 
@@ -36,6 +36,7 @@ Every result below was produced by actually running the command or check; nothin
 | Gemini overload | Preview/Production logs | Real **HTTP 503** from `gemini-3.5-flash-lite` observed → added fallback model, LOW thinking on 3.x Flash, alternating retries with backoff, budget-aware timeouts. When both models are overloaded, the creator gets the friendly 502 "Try again" (observed live, which is the designed failure path) |
 | **Instagram screenshot import, real Gemini vision** | Production | API: fictional profile screenshot → **200 in 10.2 s**, read handle and audience band, cooking store with 3 formats. Non-profile image → **422 `screenshots_unreadable`**. UI: attach → thumbnail → tick ownership → generate → editor shows "Built from your Instagram screenshots" |
 | Assets after a deploy | Production | A 5-minute asset cache served the old `create.js` with the new page (upload did nothing) → assets now `max-age=0, must-revalidate` |
+| **Profile picture + AI cover** (Sell Sphere preview, real Gemini + Supabase) | Preview | Every Gemini image model answered **429** for this key (no image quota on the free tier) → added the AI-designed fallback. Then: "Generate with AI" → designed cover in ~16 s; profile picture upload → 512×512 JPEG; editor preview showed both after fixing the sandboxed-iframe image bug; published page served both images (`200`, `image/jpeg`, immutable cache) and an `og:image`; unpublished → 404 |
 
 ## 4. Database security (live Supabase, SQL editor)
 

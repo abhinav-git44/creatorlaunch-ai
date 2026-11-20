@@ -15,7 +15,7 @@ Built for the SuperProfile *AI Storefront Generator* take-home (PM, AI-native 0�
 
 1. **Describe** (`/`): two lines about what you teach and who it's for, or 1–3 screenshots of your own Instagram profile, which the AI reads for bio, audience size and post themes (screenshots aren't stored; you confirm it's your account). Optional niche, audience size, language (English / Hinglish / हिंदी) and voice (friendly / expert / professional). Instagram is never scraped or logged in to (it blocks automated access, so a pasted profile link can't work), and the page says so.
 2. **Generate**: one Gemini call returns structured JSON: bio, theme, 2–4 products, each with a format, an INR price, a one-line "why this price", a pitch, benefits and a description. The server validates every field, strips markup, rejects duplicate or single-format sets, and keeps each price inside its format's band, snapped to familiar Indian price points. Vague input gets one clarifying question.
-3. **Edit** (`/edit/:id`): every field is editable with autosave, and each price shows the typical range for its format. AI can regenerate the bio, one product, one price, add a product, or redo the whole store; every AI change can be undone, and full rewrites ask first. **Where buyers go**: WhatsApp number, Instagram, website, and an optional payment link per product.
+3. **Edit** (`/edit/:id`): every field is editable with autosave, and each price shows the typical range for its format. AI can regenerate the bio, one product, one price, add a product, or redo the whole store; every AI change can be undone, and full rewrites ask first. **Profile picture and cover image**: upload your own (cropped and compressed in the browser), or tap *Generate with AI* for a cover built from your name and what you do and who you help. With an image-capable Gemini key it's a drawn, photo-style banner; otherwise the text AI designs one (palette, layout, subject motif) and the app draws it. No text, no faces, labelled *AI-generated*. **Where buyers go**: WhatsApp number, Instagram, website, and an optional payment link per product.
 4. **Publish**: pick `/s/your-name` and share via copy, WhatsApp or the phone's share sheet. The public page is server-rendered with three genuinely different themes. Its buttons go to the payment link, then a pre-filled WhatsApp enquiry, then Instagram, then the website. There's no fake checkout and no dead ends.
 5. **Measure** (`/admin`, token-gated): first-session publishing rate, median time to publish, generation success, material-edit rate, views and CTA clicks, all from privacy-safe events.
 
@@ -37,7 +37,7 @@ api/            generate · stores · store · regenerate · publish · page (/s
 lib/            llm (Gemini client) · prompts · ai · db (Supabase / local file) · events · metrics · http · slug · stores
 public/         index.html (create) · edit.html (editor) · admin.html (metrics) · assets/*
 supabase/       schema.sql (idempotent) · metrics.sql (reporting queries)
-tests/          api.test.js (46) · e2e.cjs (53 browser checks) · fake-gemini.js (test-only)
+tests/          api.test.js (50) · e2e.cjs (63 browser checks) · fake-gemini.js (test-only)
 evals/          cases.json (30 creators) · results-*.json      scripts/  eval.mjs · eval-score.mjs
 docs/           audit, security, test report, AI evaluation, visual audit, checklist
 ```
@@ -59,6 +59,7 @@ npm run dev               # http://localhost:3000 (uses .data/db.json when SUPAB
 | `PUBLIC_BASE_URL` | recommended | canonical URL for share links, e.g. `https://creatorlaunch-ai1.vercel.app` |
 | `GEMINI_MODEL` | no | default `gemini-3.5-flash-lite` |
 | `GEMINI_FALLBACK_MODEL` | no | default `gemini-3.6-flash`; `none` disables |
+| `GEMINI_IMAGE_MODEL` | no | comma list for AI covers; default tries `gemini-3.1-flash-image`, `gemini-3.1-flash-image-preview`, `gemini-2.5-flash-image`. Image models need a key with image quota (billing); without it, covers fall back to the AI-designed style |
 | `METRICS_TOKEN` | no | ≥16 random chars; enables `/api/metrics` and `/admin` |
 | `LLM_TIMEOUT_MS` | no | per-attempt timeout, default 25000 |
 
@@ -69,9 +70,9 @@ npm run dev               # http://localhost:3000 (uses .data/db.json when SUPAB
 ## Tests
 
 ```bash
-npm test                  # 46 API tests: real handlers + storage; fake LLM only for forced failures
+npm test                  # 50 API tests: real handlers + storage; fake LLM only for forced failures
 npm i --no-save playwright && npx playwright install chromium
-node tests/e2e.cjs        # 53 browser checks: full journey, edge cases, 3 themes × 7 viewports
+node tests/e2e.cjs        # 63 browser checks: full journey, edge cases, 3 themes × 7 viewports
 BASE_URL=https://creatorlaunch-ai1.vercel.app node scripts/eval.mjs   # 30-case real-model evaluation
 ```
 

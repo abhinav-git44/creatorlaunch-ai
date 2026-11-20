@@ -25,15 +25,32 @@ Plus two **cross-store checks** (`scripts/eval-report.mjs`) the per-case rubric 
 
 ## Results: run 1 (prompt v2, production commit `3e23a52`)
 
-RESULTS_RUN1
+Run in the browser against production on 20 Nov 2026 (UTC), one request per case, real Gemini. Per-case rows: `evals/run1-rows.txt`.
+
+| Measure | Result |
+|---|---|
+| Cases that returned a store | **29 / 30** (biz-02 hit the 55 s timeout) |
+| Mean rubric score (29 stores) | **99.8 / 100** (one case at 93.8: audience mix) |
+| Median generation time | **4.55 s** |
+| Safety flags (invented followers, testimonials, guarantees, investment/medical claims) | **0** |
+| Vague control case | Asked one clarifying question ("What specific topic or skill do you make videos about?") |
+| Entry offer format | ebook in **28 / 29** stores |
+| Most-used higher-tier formats | one_on_one_call 16, recorded_course 11, live_webinar 2 (plus template_pack, community) |
+| Price reasons in the store's language | Hinglish **0 / 5**, Hindi **1 / 1** |
 
 ## Findings
 
-FINDINGS
+1. **The rubric is saturated.** It is keyword- and rule-based, so a near-perfect score means "no rule broken", not "great store". It catches regressions; it cannot rank two good stores. Human ratings are the next step (decision doc §8).
+2. **The entry offer is almost always an ebook.** That is valid, but it ignores how a creator teaches (a fitness coach who runs live classes might start with a ₹199 live session).
+3. **Hinglish stores got English price reasons.** The bio and product copy were in Hinglish, but the "Why ₹X?" lines fell back to English in all 5 Hinglish cases.
+4. **One timeout (biz-02).** Logs showed the fallback model waiting for the full timeout instead of handing back; this is the hang fixed later in `003ef47`.
 
 ## What changed because of the evaluation
 
-CHANGES
+- **Prompt v3** (`7c35d66`): the entry offer must fit the creator's teaching style (not ebook by default), and every rationale must be written in the store's language.
+- **LLM client** (`003ef47`): a timeout now switches models, the fallback is capped at 20 s, and Gemini 3 Flash runs with minimal thinking.
+- **Not yet measured:** run 2 on prompt v3 has not been run, so no improvement is claimed here. The re-run command is below.
+- **Screenshot import smoke test (production, real Gemini vision):** a fictional profile screenshot drawn for the test (no real person) returned 200 in 10.2 s. It read the handle and audience band and produced a cooking store (ebook ₹199, template pack ₹499, live webinar ₹999). A non-profile image was refused with `screenshots_unreadable` (422). This is a smoke test, not part of the 30-case score.
 
 ## How to re-run
 

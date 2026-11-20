@@ -12,7 +12,7 @@ A new creator lands on an empty store and stalls. Building the page isn't the bl
 
 ```mermaid
 flowchart LR
-  A[Describe: 2 lines<br/>or IG username + 1 line] --> B{Input check}
+  A[Describe: 2 lines<br/>or IG profile screenshots] --> B{Input check}
   B -- empty / gibberish --> A
   B -- ok --> C[One AI call: bio, 2–4 products,<br/>₹ prices + reasons, copy, theme]
   C -- vague --> Q[One clarifying question] --> C
@@ -41,7 +41,7 @@ I also rejected **chat onboarding**: 5+ turns means 5× the AI calls and a drop-
 
 | Decision | Why | Trade-off |
 |---|---|---|
-| Description first; Instagram username optional, **never scraped** | Scraping is blocked and against Instagram's terms; two lines carry the signal. The handle becomes the default Instagram button | No real post signals yet (§8) |
+| Description first, or **screenshots of your own Instagram profile**; never scraped | Scraping is blocked and against Instagram's terms. Screenshots give the AI the real bio, follower band and post themes; they aren't stored, the creator ticks "this is my account", and a handle that doesn't match the screenshot is rejected | Reads only what's visible; the official login is in §8 |
 | **AI price → per-format band → Indian price point**, shown with a reason and the typical range | LLMs drift (₹523, or ₹20,000 ebooks); the reason and range build trust | Bands are my judgement, not sales data |
 | Always one entry offer (≤₹499), formats must differ; duplicate or single-format sets are rejected and retried | The first impulse sale is the real activation; distinct offers feel like a business | Can under-price premium creators, who can edit or ask for "more premium" |
 | **Buttons go to real destinations**: payment link → WhatsApp enquiry → Instagram → website | No dead ends and no fake checkout; most Indian micro-creators already sell over WhatsApp | Payment isn't processed inside the product |
@@ -52,7 +52,7 @@ I also rejected **chat onboarding**: 5+ turns means 5× the AI calls and a drop-
 
 ## 4. What I deliberately didn't build
 
-**Checkout** (SuperProfile has it; buttons route to the creator's own link), **accounts**, **Instagram scraping**, **AI images** (slow, easy to get wrong for real people), **a marketing landing page** (the first screen is the product), **version history** (undo covers "I liked the old one"), **a fake multi-stage progress bar** (it's one call, so staged ticks would be invented).
+**Checkout** (SuperProfile has it; buttons route to the creator's own link), **accounts**, **Instagram scraping** (pasting a profile link can't work: Instagram blocks automated access), **AI images** (slow, easy to get wrong for real people), **a marketing landing page** (the first screen is the product), **version history** (undo covers "I liked the old one"), **a fake multi-stage progress bar** (it's one call, so staged ticks would be invented).
 
 ## 5. How the AI part works
 
@@ -63,8 +63,9 @@ I also rejected **chat onboarding**: 5+ turns means 5× the AI calls and a drop-
   - A model-side input-quality flag that triggers the clarifying question.
   - Server validation of every field (types, enums, lengths, counts, distinctness), plus HTML stripping and pricing guardrails.
   - A hidden snapshot of each AI suggestion, used to measure edits.
-- **Failure handling:** 3 attempts within the 60s function budget; on 503/429 it alternates primary (`3.5-flash-lite`) and fallback (`3.6-flash`, LOW thinking) with backoff; malformed JSON is retried. Every failure becomes a plain message with Try again and the input kept.
-- **Evidence:** 39 API tests and 49 browser checks (fake model for forced failures), live production smoke tests with real Gemini, and a 30-creator evaluation run against production (`docs/AI_EVALUATION.md`).
+- **Screenshot reading:** the same call takes up to 3 images and returns what it read (handle, audience band, summary). Unreadable images get a plain ask to retry or describe; the summary is saved and reused by later regenerations.
+- **Failure handling:** 3 attempts within the 60s function budget; on 503/429 or a timeout it alternates primary (`3.5-flash-lite`) and fallback (`3.6-flash`, minimal thinking, capped at 20s) with backoff; malformed JSON is retried. Every failure becomes a plain message with Try again and the input kept.
+- **Evidence:** 46 API tests and 53 browser checks (fake model for forced failures), live production smoke tests with real Gemini, and a 30-creator evaluation run against production (`docs/AI_EVALUATION.md`).
 
 ## 6. Success metrics (implemented as events; targets are proposals, not results)
 
@@ -83,10 +84,10 @@ A **"Build my store with AI"** card on the empty-store screen for new sign-ups, 
 
 ## 8. With two more weeks
 
-1. **The official Instagram API** (the creator connects their account) for a sharper niche; measure the lift against description-only.
+1. **Official Instagram login** (Instagram API with Instagram Login; Business/Creator accounts; needs Meta app review): the creator connects their account, so profile and recent posts arrive without screenshots. Measure the lift against screenshots and description-only.
 2. **Prices calibrated on SuperProfile sales data**, replacing my bands.
 3. **A "Make this product" helper**: AI outlines for the ebook or course, since making the product is the next blocker.
 4. **OTP login and native checkout**, so the guardrail metric becomes measurable.
 5. **Grow the eval set to ~100 creators, with human ratings**, run on every prompt change.
 
-**How I built it:** I made the product calls (input strategy, pricing guardrails, regeneration and destination model, metric definitions, cut list) and used Claude as the coding agent, reviewing and running everything. Live testing surfaced real issues that I then fixed: Gemini 503s (now a fallback model), CDN caching that delayed unpublish (now ≤30s), and a database response-parsing bug.
+**How I built it:** I made the product calls (input strategy, pricing guardrails, regeneration and destination model, metric definitions, cut list) and used Claude as the coding agent, reviewing and running everything. Live testing surfaced real issues that I then fixed: Gemini 503s (now a fallback model), CDN caching that delayed unpublish (now ≤30s), a fallback model that hung until the timeout, stale JS after a deploy, and a database response-parsing bug.

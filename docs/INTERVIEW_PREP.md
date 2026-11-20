@@ -5,13 +5,13 @@ Self-assessment against the brief's rubric. It is an estimate made by the builde
 | Area (weight) | Estimate | Why (evidence) | Remaining weakness |
 |---|---|---|---|
 | Problem thinking & judgement (30) | **26** | Framed as three decisions plus a buyer next step; description-first input; ≤₹499 entry-offer ladder; audience-size rules; buyer destinations instead of a fake checkout; explicit cut list; metric definitions implemented (`lib/metrics.js`) | Personas and pricing bands are assumptions, with no user research or sales data |
-| Execution (25) | **22** | Live on Vercel + Supabase; real-AI journey verified on production; 39 API tests + 49 browser checks; overload fallback; RLS verified live | Gemini overload still produces "Try again" when both models are down; no accounts |
+| Execution (25) | **22** | Live on Vercel + Supabase; real-AI journey verified on production; 46 API tests + 53 browser checks; overload fallback; RLS verified live | Gemini overload still produces "Try again" when both models are down; no accounts |
 | UX & UI craft (20) | **17** | Mobile-first editor with reasons, ranges, undo and confirmations; three distinct public layouts; AA colours; 7-viewport no-overflow checks | Not tested with real creators; no Lighthouse run in this environment |
 | AI usage quality (10) | **9** | Schema + server validation, distinctness, price guardrails, clarifying question, separate regeneration prompts, 30-case eval on production | Automated rubric only; no human ratings yet |
 | Communication (15) | **13** | 3-page decision doc, precise metric definitions, honest limits, Loom script tied to real flows | The Loom recording itself is still to be made |
 | **Total** | **≈87 / 100** | Baseline v1 self-estimate ≈ 76 | |
 
-## 15 hard questions, with suggested answers
+## 16 hard questions, with suggested answers
 
 1. **Why not scrape Instagram? Isn't that the "magic"?** It's blocked and against Instagram's terms, so it would fail exactly when demoed. Two lines of description carry the decisive signal (skill + audience). The magic is the decisions, not reading the profile. The next step is the *official* Instagram API with the creator's consent, A/B tested against description-only on publish rate.
 2. **What's the one metric?** First-session publishing rate: sessions with a publish ÷ sessions with `onboarding_started`, with a 30-minute idle expiry. It's instrumented now. "Within 24h" is a broader metric that I'd report alongside, not interchangeably.
@@ -28,3 +28,4 @@ Self-assessment against the brief's rubric. It is an estimate made by the builde
 13. **Differentiation vs. Linktree/Stan/Topmate templates?** Templates give a blank page with nicer fonts. This decides *what to sell and at what price* for an Indian audience, in Hinglish if needed, and wires buyers to WhatsApp. That's the actual blocker.
 14. **The two-week roadmap: what's first and why?** Pricing calibrated on SuperProfile data, because it improves every store and every price reason. Then the official Instagram API (a sharper niche). Then the "make this product" helper, since that's the next stall after publishing.
 15. **What would change after real user testing?** I expect: more creators want to *start from their existing offer* (an "I already sell X" path); price edits concentrate in high-touch formats (bands too low or too high); and Hindi users want the editor UI in Hindi too. I'd watch the material-edit rate per field to prioritise.
+16. **Why can't I just paste an Instagram link?** Instagram blocks automated access and scraping breaks its terms, so a link-reader would fail in production and put SuperProfile at risk. Screenshots of your own profile give the AI the real bio, follower band and post themes today; they aren't stored, you confirm it's your account, and a mismatched handle is refused. The proper fix is official Instagram login (Business/Creator accounts, Meta app review), which is first on the integration roadmap.

@@ -24,6 +24,12 @@
 | 14 | Slug handling | Path tricks, reserved routes | Low | Strict regex, reserved list (`api`, `admin`, `edit`…), DB check constraint, case-insensitive redirect. | API tests (reserved, collision, uppercase) |
 | 15 | Preview iframe | Preview content scripting the editor | Low | The preview runs in `sandbox="allow-scripts allow-popups"` (no same-origin), loads no scripts, and contains escaped content only. | E2E preview step |
 
+### Instagram screenshot import
+- Max 3 images, ≤1.5 MB each, request ≤4 MB; type checked by **magic bytes** (JPEG/PNG/WebP), not by the declared MIME type. Resized in the browser before upload.
+- Images are sent to Gemini once and **never stored or logged**; only the AI's short text summary (≤700 chars) is saved with the store.
+- The creator must tick "This is my account". If a typed handle doesn't match the handle read from the screenshot, generation is refused (422), which limits building a store from someone else's profile. It can't prove ownership; official Instagram login (roadmap) would.
+- The client can't inject `profileNotes`: input checks run with it cleared, and it's set only from the model's reading.
+
 ## Accepted risks (documented, not fixed in v1)
 
 - **Edit link = full edit rights.** Whoever has the link can edit, and a lost link means lost access. Mitigation in v2 roadmap: phone OTP login with links bound to an account.

@@ -35,7 +35,7 @@
 - ✅ Accessibility: AA contrast, focus trap, focus-visible, reduced motion, landmarks. ⚠️ No Lighthouse run (tool not available here)
 
 ## Engineering
-- ✅ API tests: 39/39 · ✅ Browser E2E: 49/49
+- ✅ API tests: 46/46 · ✅ Browser E2E: 53/53 · ✅ Instagram screenshot import verified on production (real Gemini)
 - ✅ Database security reviewed and verified live (anon sees 0 rows)
 - ✅ Secrets server-only; secret scan of `public/` clean
 - ✅ Shared rate limiting (Postgres) with memory fallback

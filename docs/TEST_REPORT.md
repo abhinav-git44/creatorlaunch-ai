@@ -15,14 +15,14 @@ Every result below was produced by actually running the command or check; nothin
 | Suite | Command | Result |
 |---|---|---|
 | JavaScript syntax | `node --check` on all 32 source files | **32 / 32 OK** |
-| API tests | `npm test` (`node --test tests/*.test.js`) | **39 passed, 0 failed** (≈30 s) |
-| Browser E2E | `node tests/e2e.cjs` (Playwright + Chromium) | **49 checks passed, 0 failed** (log: `docs/e2e-run.log`) |
+| API tests | `npm test` (`node --test tests/*.test.js`) | **46 passed, 0 failed** (≈30 s) |
+| Browser E2E | `node tests/e2e.cjs` (Playwright + Chromium) | **53 checks passed, 0 failed** (log: `docs/e2e-run.log`) |
 | Secret scan | `grep -rnE "GEMINI_API_KEY\|SUPABASE_SERVICE_ROLE_KEY\|sb_secret" public/` | **No matches** (no secret names in browser code) |
 | Deploy config | `vercel.json` parsed as JSON; rewrites and headers mirrored by the dev server and exercised by tests | **Valid** |
 
 **API tests cover:** health without leaking secrets; generation with pricing guardrails and sanitising; empty, gibberish, one-word, Hinglish and Hindi input; invalid and normalised Instagram usernames; vague input leading to a clarifying question; malformed JSON retry; 5xx retry; persistent malformed output; schema-breaking output; **empty model output**; **duplicate product ideas rejected**; schema-rejection fallback; **primary-model 503 → fallback model**; **retry exhaustion**; 429; timeout; own rate limit; edit-key access control; persistence of edits; invalid edits never overwriting saved data; section-only regeneration (bio, product, price); add-product limit; failure message keeping content; publish idempotency; slug collision, reserved and custom slugs; unpublish and republish; friendly 404s; XSS stripping; static routes; **payment-link and WhatsApp validation (javascript:, credentials, localhost refused)**; **CTA routing with `noopener`, canonical/OG/Twitter tags, no inline scripts**; **CSP and security headers, case-insensitive slug redirect**; **events: session required, de-duplication, store events need the key**; **metrics endpoint locked**; **funnel maths matches the documented definitions** (first-session publish, repeat publish counted once, views de-duplicated, material edits); **full regeneration keeps contact links**.
 
-**Browser E2E covers (phone 390×844 unless noted):** the brief's 22-step journey: landing → describe → generate (fake LLM) → bio and 2–4 products present → edit title, price and pitch → autosave → regenerate one product → others unchanged (including my edits) → undo → failed regeneration keeps content → theme change → preview → publish → **Copy link puts the URL on the clipboard** → open in an **independent browser context** → saved edits visible → payment-link CTA + WhatsApp CTA + `noopener` → view and click events sent → unpublish (confirm) → 404 → republish → 200. Plus: empty input, gibberish, invalid username, never claims Instagram data, AI timeout, invalid AI JSON, input preserved after failure, invalid price blocks save, unsafe payment link refused, language-rewrite confirmation + cancel, keyboard focus trap, duplicate slug with suggestion, XSS through the UI, missing and invalid edit key, **3 themes × 7 viewports (360×800 → 1920×1080) with no horizontal overflow**, create and editor screens at all 7 viewports, and **zero console errors or unexpected dialogs**.
+**Browser E2E covers (phone 390×844 unless noted):** the brief's 22-step journey: landing → describe → generate (fake LLM) → bio and 2–4 products present → edit title, price and pitch → autosave → regenerate one product → others unchanged (including my edits) → undo → failed regeneration keeps content → theme change → preview → publish → **Copy link puts the URL on the clipboard** → open in an **independent browser context** → saved edits visible → payment-link CTA + WhatsApp CTA + `noopener` → view and click events sent → unpublish (confirm) → 404 → republish → 200. Plus: empty input, gibberish, invalid username, never claims Instagram data, AI timeout, invalid AI JSON, input preserved after failure, invalid price blocks save, unsafe payment link refused, language-rewrite confirmation + cancel, keyboard focus trap, duplicate slug with suggestion, XSS through the UI, missing and invalid edit key, **3 themes × 7 viewports (360×800 → 1920×1080) with no horizontal overflow**, create and editor screens at all 7 viewports, **Instagram screenshot import** (attach, thumbnail, ownership checkbox required, unreadable screenshot message, handle mismatch refused, profile-read note in the editor), and **zero console errors or unexpected dialogs**.
 
 ## 3. Live checks (real Gemini + Supabase)
 
@@ -34,6 +34,8 @@ Every result below was produced by actually running the command or check; nothin
 | Persistence, unsafe link (422), idempotent publish, CSP header, uppercase redirect, wrong/no key (404), metrics disabled without token (404) | Preview | All as expected (hand-written store content, not AI, used for this infrastructure check) |
 | CDN after unpublish | Preview | First request served **STALE** (age 37 s, old 30 s cache), next **404** → cache shortened to `s-maxage=10, stale-while-revalidate=20` (≤30 s) and re-verified on production above |
 | Gemini overload | Preview/Production logs | Real **HTTP 503** from `gemini-3.5-flash-lite` observed → added fallback model, LOW thinking on 3.x Flash, alternating retries with backoff, budget-aware timeouts. When both models are overloaded, the creator gets the friendly 502 "Try again" (observed live, which is the designed failure path) |
+| **Instagram screenshot import, real Gemini vision** | Production | API: fictional profile screenshot → **200 in 10.2 s**, read handle and audience band, cooking store with 3 formats. Non-profile image → **422 `screenshots_unreadable`**. UI: attach → thumbnail → tick ownership → generate → editor shows "Built from your Instagram screenshots" |
+| Assets after a deploy | Production | A 5-minute asset cache served the old `create.js` with the new page (upload did nothing) → assets now `max-age=0, must-revalidate` |
 
 ## 4. Database security (live Supabase, SQL editor)
 
@@ -53,6 +55,8 @@ Every result below was produced by actually running the command or check; nothin
 4. **A per-attempt timeout floor overrode the configured timeout** → caught by the E2E timeout step, fixed.
 5. **The sandboxed preview iframe couldn't load the storefront module (CORS)** → the preview no longer loads scripts.
 6. **Unpublished page still served from CDN** → shorter cache, documented ≤30 s.
+7. **Fallback model hung until the overall timeout** (one eval case timed out) → a timeout now switches models, fallback capped at 20 s, minimal thinking.
+8. **Stale JS after a deploy** → assets revalidate on every load.
 
 ## 6. Known limitations of this testing
 

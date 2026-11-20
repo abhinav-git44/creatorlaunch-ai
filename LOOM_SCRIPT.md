@@ -14,7 +14,7 @@
 "New creators land on an empty store and stall. Building the page isn't the blocker; three decisions they've never made are: what to sell, what to charge, what to say. CreatorLaunch makes those three decisions for them, shows its reasons, and leaves one job: adjust and publish, in the first session."
 
 **0:40–1:40 · Onboarding (screen: `/`)**
-1. Tap **Use my Instagram** and point at the note. "We never read Instagram: it's blocked and against their terms. The username becomes the store's Instagram button, and the AI is told it has no profile data, so it can't invent followers or reviews."
+1. Tap **Use my Instagram**. "Pasting a profile link can't work: Instagram blocks automated access and scraping is against its terms. So the creator uploads screenshots of their own profile." Add 1–2 screenshots **of your own account** (not someone else's), tick **This is my account**. Optionally generate here and show the "Built from your Instagram screenshots" note in the editor, then come back. "Official Instagram login is on my two-week roadmap."
 2. Back to **Describe yourself**. Type name *Arjun*, paste the Hinglish text, pick **Fitness**, **20K–100K**, **Hinglish**, voice **Friendly**.
 3. Tap **Generate my store**. While waiting: "One structured Gemini call. Every field is validated on the server, prices are kept inside a band for each format, and duplicate ideas are rejected before anything reaches this screen. No fake progress bar, because it's one call."
 
@@ -37,7 +37,7 @@
 **5:20–6:10 · Edge cases (live)**
 14. New tab `/`: type `asdfgh qwerty` → caught before any AI call, with an example. Type `I make content online` → the AI asks **one** clarifying question, with **Use this draft** as the escape hatch.
 15. Back in the editor: **Unpublish** → confirm → refresh the incognito tab (within about 30s) → "not live". Republish → same link works.
-16. One sentence on what's tested: "39 API tests and 49 browser checks cover timeouts, overloads, malformed AI output, duplicate links, XSS, wrong edit keys and seven screen sizes."
+16. One sentence on what's tested: "46 API tests and 53 browser checks cover timeouts, overloads, malformed AI output, duplicate links, XSS, wrong edit keys and seven screen sizes."
 
 **6:10–7:10 · Decisions (PDF on screen)**
 17. Flow + the rejected main screen (tap-to-edit) and why.

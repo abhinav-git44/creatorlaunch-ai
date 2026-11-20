@@ -422,6 +422,11 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
     watch(home);
     await home.goto(BASE + '/');
     check(await home.isHidden('#templates') && !(await home.$('a[href="#templates"]')), 'no separate template section or nav link on the landing page');
+    await home.click('.home-nav [data-auth="login"]');
+    await home.waitForSelector('.sheet');
+    check((await home.textContent('.sheet h3')).includes('coming soon') && await home.isVisible('.sheet [data-go-create]'), 'Log in (display only) explains accounts are coming soon, no dead end');
+    await home.click('.sheet [data-auth-close]');
+    await home.waitForFunction(() => !document.querySelector('.sheet'));
     await home.click('#tpl-pick-browse');
     await home.waitForSelector('.sheet [data-gallery] .tpl-card');
     const G = '.sheet [data-gallery]';

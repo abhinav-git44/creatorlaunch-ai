@@ -16,7 +16,7 @@ Every result below was produced by actually running the command or check; nothin
 |---|---|---|
 | JavaScript syntax | `node --check` on all 32 source files | **32 / 32 OK** |
 | API tests | `npm test` (`node --test tests/*.test.js`) | **56 passed, 0 failed** (≈30 s) |
-| Browser E2E | `node tests/e2e.cjs` (Playwright + Chromium) | **138 checks passed, 0 failed** (log: `docs/e2e-run.log`) |
+| Browser E2E | `node tests/e2e.cjs` (Playwright + Chromium) | **139 checks passed, 0 failed** (log: `docs/e2e-run.log`) |
 | Secret scan | `grep -rnE "GEMINI_API_KEY\|SUPABASE_SERVICE_ROLE_KEY\|sb_secret" public/` | **No matches** (no secret names in browser code) |
 | Deploy config | `vercel.json` parsed as JSON; rewrites and headers mirrored by the dev server and exercised by tests | **Valid** |
 

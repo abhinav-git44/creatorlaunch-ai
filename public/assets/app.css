@@ -415,6 +415,10 @@ html { scroll-behavior: smooth; }
 .home-nav .nav-cta { min-height: 40px; padding: 0 16px; font-size: 14.5px; }
 @media (max-width: 860px) { .home-nav .nav-links { display: none; } }
 @media (max-width: 420px) { .home-nav #continue:not([hidden]) ~ .nav-cta { display: none; } }
+.home-nav .nav-auth { min-height: 40px; padding: 0 14px; font-size: 14.5px; }
+.home-nav .btn + .btn { margin-left: -16px; }
+@media (max-width: 640px) { .home-nav { gap: 16px; } .home-nav .nav-signup { display: none; } .home-nav .btn + .btn { margin-left: -8px; } .home-nav .nav-login { padding: 0 10px; } }
+@media (max-width: 420px) { .home-nav #continue:not([hidden]) ~ .nav-login { display: none; } .home-nav .nav-cta { padding: 0 12px; } }
 
 .btn-xl { min-height: 58px; padding: 0 26px; font-size: 17.5px; border-radius: 14px; font-weight: 700; }
 
@@ -778,3 +782,7 @@ ol.dest li::before { content: counter(d); color: var(--brand-champagne); font-we
   .hx-fmt.b3 { left: 40%; top: -2%; width: 17cqw; }
   .hx-fmt.b4 { right: 0; top: 2%; width: 17cqw; }
 }
+.home-nav .logo-word { white-space: nowrap; }
+@media (max-width: 400px) { .home-nav { gap: 10px; padding-left: 12px; padding-right: 12px; } .home-nav .nav-login { padding: 0 6px; } .home-nav .nav-cta { font-size: 14px; } }
+@media (max-width: 370px) { .home-nav { gap: 6px; } .home-nav .logo-word { font-size: 16px; } .home-nav .nav-cta { padding: 0 10px; font-size: 13.5px; } .home-nav .btn + .btn { margin-left: -2px; } }
+@media (max-width: 330px) { .home-nav .nav-login { display: none; } }

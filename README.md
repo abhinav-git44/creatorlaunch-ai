@@ -39,7 +39,7 @@ api/            generate · stores · store · regenerate · publish · page (/s
 lib/            llm (Gemini client) · prompts · ai · db (Supabase / local file) · events · metrics · http · slug · stores
 public/         index.html (create) · edit.html (editor) · admin.html (metrics) · assets/*
 supabase/       schema.sql (idempotent) · metrics.sql (reporting queries)
-tests/          api.test.js (56) · e2e.cjs (138 browser checks) · fake-gemini.js (test-only)
+tests/          api.test.js (56) · e2e.cjs (139 browser checks) · fake-gemini.js (test-only)
 evals/          cases.json (30 creators) · results-*.json      scripts/  eval.mjs · eval-score.mjs
 docs/           audit, security, test report, AI evaluation, visual audit, checklist
 ```
@@ -74,7 +74,7 @@ npm run dev               # http://localhost:3000 (uses .data/db.json when SUPAB
 ```bash
 npm test                  # 56 API tests: real handlers + storage; fake LLM only for forced failures
 npm i --no-save playwright && npx playwright install chromium
-node tests/e2e.cjs        # 138 browser checks: full journey, edge cases, all 10 templates, 7 viewports
+node tests/e2e.cjs        # 139 browser checks: full journey, edge cases, all 10 templates, 7 viewports
 BASE_URL=https://creatorlaunch-ai1.vercel.app node scripts/eval.mjs   # 30-case real-model evaluation
 ```
 

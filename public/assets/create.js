@@ -472,3 +472,22 @@ function openHomeGallery() {
 $('#tpl-pick-browse').addEventListener('click', openHomeGallery);
 $('#tpl-pick-clear').addEventListener('click', () => chooseTemplate(''));
 syncTemplatePick();
+
+
+// ---------------------------------------------------------------- log in / sign up (preview only)
+// Accounts aren't built yet. The buttons say so plainly instead of leading to a dead end, and
+// point to what works today: no sign-up, stores saved on this device, a private edit link each.
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-auth]');
+  if (!b) return;
+  const signup = b.dataset.auth === 'signup';
+  const mine = savedStores().length;
+  openSheet((sheet, close) => {
+    sheet.setAttribute('aria-label', signup ? 'Sign up' : 'Log in');
+    sheet.innerHTML = `<h3>${signup ? 'Sign up' : 'Log in'}: accounts are coming soon</h3>
+      <p class="sub">You don't need an account to use Sell Sphere today. Create your store in about a minute; it's saved on this device, and each store has a private edit link you can bookmark to edit from anywhere.</p>
+      <p class="sub" style="margin-top:-6px">Accounts (log in on any device, see all your stores in one place) are on the roadmap.</p>
+      <div class="row">${mine ? '<a class="btn btn-secondary" href="#my-stores" data-auth-close>My stores</a>' : '<button type="button" class="btn btn-secondary" data-auth-close>Close</button>'}<a class="btn btn-primary" href="#create" data-go-create data-auth-close autofocus>Create my store</a></div>`;
+    sheet.querySelectorAll('[data-auth-close]').forEach((x) => x.addEventListener('click', close));
+  });
+});

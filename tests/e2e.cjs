@@ -615,6 +615,69 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
     await legacy.waitForSelector('#sec-template', { timeout: 10000 });
     check((await legacy.getAttribute('#sec-template [data-theme="bold"]', 'aria-pressed')) === 'true' && await legacy.isVisible('[data-link="email"]'), 'an old-format store opens in the editor with its template kept');
 
+    // ------------------------------------------------------------ 16. Dashboard + hero
+    console.log('16. Creator dashboard and home hero');
+    const dash = await (await browser.newContext(phoneCtx)).newPage();
+    watch(dash);
+    const editUrl = `${BASE}/edit/${legacyId}#k=${encodeURIComponent(legacyKey)}`;
+    await dash.goto(editUrl);
+    await dash.waitForSelector('#sec-overview .dash-row');
+    check(await dash.isVisible('#dash-nav a[data-jump="sec-products"]'), 'phone: dashboard tabs shown');
+    await dash.waitForFunction(() => !document.querySelector('#sec-overview .dash-dots'));
+    check((await dash.textContent('#sec-overview')).includes('Views, 7 days'), 'overview shows views and taps');
+    await dash.click('#dash-nav a[data-jump="sec-links"]');
+    await dash.waitForTimeout(1500);
+    const jumpTop = await dash.evaluate(() => Math.round(document.getElementById('sec-links').getBoundingClientRect().top));
+    check(jumpTop >= 0 && jumpTop < 422, `tab jumps to that section (top at ${jumpTop}px)`);
+    const order0 = await dash.$$eval('#sec-overview .dash-row', (els) => els.map((x) => x.dataset.rid));
+    await dash.click(`#sec-overview [data-rid="${order0[0]}"] [data-rmove="down"]`);
+    const order1 = await dash.$$eval('#sec-overview .dash-row', (els) => els.map((x) => x.dataset.rid));
+    const cards1 = await dash.$$eval('#sec-products .product', (els) => els.map((x) => x.dataset.pid));
+    check(order1[0] === order0[1] && order1[1] === order0[0] && JSON.stringify(cards1) === JSON.stringify(order1), 'reorder with arrows: overview and product cards both move');
+    await dash.waitForTimeout(300);
+    await waitSaved(dash);
+    await dash.reload();
+    await dash.waitForSelector('#sec-overview .dash-row');
+    check(JSON.stringify(await dash.$$eval('#sec-overview .dash-row', (els) => els.map((x) => x.dataset.rid))) === JSON.stringify(order1), 'new order persists after refresh');
+    await dash.click('#bottom-bar [data-action="preview"]');
+    await dash.waitForSelector('#preview-mobile');
+    await dash.waitForTimeout(600);
+    check((await dash.frameLocator('#preview-mobile').locator('.card').first().getAttribute('id')) === `p-${order1[0]}`, 'storefront shows the new order');
+    await dash.click('.preview-overlay [data-close]');
+    const nBefore = order1.length;
+    if (nBefore < 4) {
+      await dash.click('#sec-overview [data-action="add-menu"]');
+      await dash.click('.sheet [data-add="own"]');
+      await dash.waitForFunction((n) => document.querySelectorAll('#sec-products .product').length === n + 1, nBefore);
+      const newPid = await dash.$$eval('#sec-products .product', (els) => els[els.length - 1].dataset.pid);
+      await dash.waitForTimeout(500);
+      check(await dash.evaluate((pid) => document.activeElement?.closest('[data-pid]')?.dataset.pid === pid, newPid), 'Add my own: blank product added and its title focused');
+      await dash.waitForTimeout(1300);
+      check((await dash.textContent('#save-status')).includes('needs a title'), 'a blank product isn\'t saved until it has a title and pitch');
+      await dash.fill(`#sec-products [data-pid="${newPid}"] [data-pf="title"]`, 'Festival Sweets Masterclass');
+      await dash.fill(`#sec-products [data-pid="${newPid}"] [data-pf="shortDescription"]`, 'Six classic Diwali sweets, step by step.');
+      await dash.waitForTimeout(300);
+      await waitSaved(dash);
+      check((await dash.textContent('#sec-overview')).includes('Festival Sweets Masterclass'), 'own product saved and listed in the overview');
+    }
+    await dash.click(`#sec-overview [data-rid="${order1[1]}"] [data-redit]`);
+    await dash.waitForTimeout(600);
+    check(await dash.evaluate((pid) => document.activeElement?.closest('[data-pid]')?.dataset.pid === pid, order1[1]), 'Edit on a row jumps to that product\'s title');
+    const wide = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+    watch(wide);
+    await wide.goto(editUrl);
+    await wide.waitForSelector('#sec-overview .dash-row');
+    const side = await wide.evaluate(() => {
+      const nav = document.getElementById('dash-nav'); const r = nav.getBoundingClientRect(); const a = document.getElementById('app').getBoundingClientRect();
+      return { left: r.right <= a.left + 1, store: getComputedStyle(nav.querySelector('.dash-store')).display !== 'none', overflow: document.documentElement.scrollWidth > window.innerWidth };
+    });
+    check(side.left && side.store && !side.overflow, 'desktop: sidebar sits left of the editor, with the store name, no overflow');
+    await wide.screenshot({ path: path.join(SHOTS, 'after-16-dashboard-1440.png') });
+    await wide.goto(BASE + '/');
+    const heroOk = await wide.$$eval('.hx img', async (imgs) => { await Promise.all(imgs.map((i) => i.decode().catch(() => {}))); return imgs.length === 2 && imgs.every((i) => i.naturalWidth > 0); });
+    check(heroOk, 'home hero: dashboard and storefront images load');
+    check((await wide.$$('.hx-fmt')).length === 6, 'home hero: six format circles');
+
     check(errors.length === 0, `no browser errors or unexpected dialogs${errors.length ? ': ' + errors.join(' | ') : ''}`);
     console.log(`\nAll browser checks passed (${passed}).`);
   } catch (err) {

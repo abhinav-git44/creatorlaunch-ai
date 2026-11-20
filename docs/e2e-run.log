@@ -136,6 +136,20 @@
   ✓ My stores fits the phone screen
 15. Stores saved before the template update still open
   ✓ an old-format store opens in the editor with its template kept
+16. Creator dashboard and home hero
+  ✓ phone: dashboard tabs shown
+  ✓ overview shows views and taps
+  ✓ tab jumps to that section (top at 130px)
+  ✓ reorder with arrows: overview and product cards both move
+  ✓ new order persists after refresh
+  ✓ storefront shows the new order
+  ✓ Add my own: blank product added and its title focused
+  ✓ a blank product isn't saved until it has a title and pitch
+  ✓ own product saved and listed in the overview
+  ✓ Edit on a row jumps to that product's title
+  ✓ desktop: sidebar sits left of the editor, with the store name, no overflow
+  ✓ home hero: dashboard and storefront images load
+  ✓ home hero: six format circles
   ✓ no browser errors or unexpected dialogs
 
-All browser checks passed (124).
+All browser checks passed (137).

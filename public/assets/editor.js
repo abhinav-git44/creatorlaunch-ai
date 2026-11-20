@@ -48,6 +48,7 @@ async function load() {
   renderAll();
   setStatus();
   updatePreview(true);
+  loadStats();
   if (sessionStorage.getItem(`cl_welcomed_${id}`) !== '1') {
     toast('Your store is ready. Edit anything, then tap Publish.');
     try { sessionStorage.setItem(`cl_welcomed_${id}`, '1'); } catch { /* ignore */ }
@@ -600,7 +601,8 @@ function startOverCard() {
 
 function renderAll() {
   const active = document.activeElement?.id;
-  app.innerHTML = publishedBar() + templateCard() + profileCard() + productsCard() + testimonialsCard() + linksCard() + lookCard() + startOverCard();
+  app.innerHTML = publishedBar() + overviewCard() + templateCard() + profileCard() + productsCard() + testimonialsCard() + linksCard() + lookCard() + startOverCard();
+  renderNav();
   if (active) document.getElementById(active)?.focus();
   validateLocal();
 }
@@ -777,6 +779,20 @@ function onEdit(target) {
   }
   scheduleSave();
   updatePreview();
+  refreshOverview();
+}
+
+// Keep the dashboard overview and sidebar in step with typing. Neither contains the field being
+// edited, so replacing them never moves the cursor.
+let overviewTimer = null;
+function refreshOverview() {
+  clearTimeout(overviewTimer);
+  overviewTimer = setTimeout(() => {
+    const el = document.getElementById('sec-overview');
+    if (el && !el.contains(document.activeElement)) { el.outerHTML = overviewCard(); observer?.observe(document.getElementById('sec-overview')); }
+    const nm = document.querySelector('#dash-nav .dash-store-name');
+    if (nm) nm.textContent = content.creator.displayName || 'Your store';
+  }, 250);
 }
 
 app.addEventListener('input', (ev) => {
@@ -979,6 +995,177 @@ async function unpublish() {
   }
 }
 
+// ---------------------------------------------------------------- dashboard
+// "My store" overview: link + copy, the creator's real numbers (views and buy-button taps on
+// the live page), profile at a glance and the product list (reorder, edit, add). Sidebar on
+// wide screens, a sticky tab strip on phones; both jump to the cards below.
+
+let stats = null; // null = loading, false = unavailable
+async function loadStats() {
+  try { stats = await api(`/api/stores/${encodeURIComponent(id)}?stats=1`, { key, timeoutMs: 15000 }); } catch { stats = false; }
+  const el = document.getElementById('sec-overview');
+  if (el) { el.outerHTML = overviewCard(); observer?.observe(document.getElementById('sec-overview')); }
+}
+
+const NAV = [
+  ['sec-overview', 'My store', '<path d="M3 10l9-6 9 6v10H3z"/><path d="M9 20v-6h6v6"/>'],
+  ['sec-template', 'Design', '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/>'],
+  ['sec-bio', 'Profile', '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>'],
+  ['sec-products', 'Products', '<path d="M4 7l8-4 8 4-8 4z"/><path d="M4 7v10l8 4 8-4V7"/><path d="M12 11v10"/>'],
+  ['sec-testimonials', 'Testimonials', '<path d="M4 5h16v11H8l-4 4z"/>'],
+  ['sec-links', 'Where buyers go', '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'],
+  ['sec-look', 'Language & voice', '<path d="M4 5h9M8.5 3v2M6 5c0 4 3 7 6 8M11 5c0 4-3 7-7 9"/><path d="M13 21l4-9 4 9M14.5 18h5"/>'],
+  ['sec-all', 'Start over', '<path d="M4 4v6h6"/><path d="M5 15a8 8 0 1 0 2-8.5L4 10"/>'],
+];
+let navActive = 'sec-overview';
+function renderNav() {
+  const nav = document.getElementById('dash-nav');
+  if (!nav || !content) return;
+  nav.hidden = false;
+  nav.innerHTML = `<div class="dash-store"><span class="dash-store-name">${e(content.creator.displayName || 'Your store')}</span><span class="ms-status ${store.status === 'published' ? 'live' : 'draft'}">${store.status === 'published' ? 'Live' : 'Draft'}</span></div>
+    <ul>${NAV.map(([sid, label, icon]) => `<li><a href="#${sid}" data-jump="${sid}" ${sid === navActive ? 'aria-current="true"' : ''}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg><span>${e(label)}</span></a></li>`).join('')}</ul>
+    <a class="dash-all" href="/#my-stores">← All my stores</a>`;
+  observeSections();
+}
+let observer = null;
+function observeSections() {
+  if (!('IntersectionObserver' in window)) return;
+  observer?.disconnect();
+  observer = new IntersectionObserver((entries) => {
+    const vis = entries.filter((x) => x.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+    if (!vis) return;
+    navActive = vis.target.id;
+    document.querySelectorAll('#dash-nav [data-jump]').forEach((a) => { if (a.dataset.jump === navActive) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current'); });
+    const cur = document.querySelector('#dash-nav [aria-current="true"]');
+    const strip = document.querySelector('#dash-nav ul');
+    if (cur && strip && strip.scrollWidth > strip.clientWidth) strip.scrollTo({ left: cur.parentElement.offsetLeft - 16, behavior: 'smooth' });
+  }, { rootMargin: '-120px 0px -60% 0px' });
+  NAV.forEach(([sid]) => { const el = document.getElementById(sid); if (el) observer.observe(el); });
+}
+function jumpTo(sid, focusSel) {
+  const el = document.getElementById(sid);
+  if (!el) return;
+  el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  const f = focusSel ? el.querySelector(focusSel) : el.querySelector('h2');
+  if (f) { if (!focusSel) f.setAttribute('tabindex', '-1'); setTimeout(() => f.focus({ preventScroll: true }), 350); }
+}
+
+const FORMAT_ICONS = {
+  doc: '<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/>',
+  play: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>',
+  live: '<rect x="3" y="6" width="13" height="12" rx="2.5"/><path d="M16 10l5-3v10l-5-3"/>',
+  call: '<rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M4 10h16"/>',
+  people: '<circle cx="9" cy="9" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19c1-3 3.3-4.5 6-4.5s5 1.5 6 4.5M15 15c2.5 0 4.5 1.2 5.5 4"/>',
+};
+const FORMAT_ICON_OF = { ebook: 'doc', template_pack: 'doc', recorded_course: 'play', cohort_course: 'play', live_webinar: 'live', one_on_one_call: 'call', community: 'people', membership: 'people' };
+function formatIcon(format) {
+  return `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${FORMAT_ICONS[FORMAT_ICON_OF[format]] || FORMAT_ICONS.doc}</svg>`;
+}
+const fmtNum = (n) => (typeof n === 'number' ? n.toLocaleString('en-IN') : '–');
+function overviewCard() {
+  const c = content.creator;
+  const live = store.status === 'published' && store.slug;
+  const st = stats || {};
+  const loading = stats === null;
+  const tpl = TEMPLATES[content.theme.style] || TEMPLATES.minimal;
+  const n = content.products.length;
+  const tile = (label, value, sub) => `<div class="dash-tile"><span class="dash-tile-label">${label}</span><b>${loading ? '<span class="dash-dots">…</span>' : value}</b>${sub ? `<span class="dash-tile-sub">${sub}</span>` : ''}</div>`;
+  const rows = content.products.map((p, i) => {
+    const thumb = assetUrl(p.cover);
+    const taps = st.tapsByProduct?.[p.id] || 0;
+    return `<li class="dash-row" data-rid="${e(p.id)}" draggable="true">
+      <span class="drag" aria-hidden="true" title="Drag to reorder">⋮⋮</span>
+      <span class="dash-thumb">${thumb ? `<img src="${e(thumb)}" alt="" width="64" height="36" loading="lazy">` : formatIcon(p.format)}</span>
+      <span class="dash-info"><b>${e(p.title || 'Untitled product')}</b><span>${e(formatInr(Number(p.priceInr) || 0, p.format))} · ${e(FORMATS[p.format]?.label || p.format)}${live && !loading && stats ? ` · ${taps} ${taps === 1 ? 'tap' : 'taps'} (30 days)` : ''}</span></span>
+      <span class="dash-ctl">
+        <button type="button" class="icon-btn" data-rmove="up" ${i === 0 ? 'disabled' : ''} aria-label="Move ${e(p.title || 'product')} up">↑</button>
+        <button type="button" class="icon-btn" data-rmove="down" ${i === n - 1 ? 'disabled' : ''} aria-label="Move ${e(p.title || 'product')} down">↓</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-redit>Edit</button>
+      </span></li>`;
+  }).join('');
+  const avatar = assetUrl(c.avatar);
+  return `<section class="card dash-overview" id="sec-overview">
+    <div class="card-head"><h2>My store</h2><span class="ms-status ${live ? 'live' : 'draft'}">${live ? 'Live' : 'Draft'}</span></div>
+    ${live ? '' : '<div class="dash-link"><span class="dash-url muted">Not live yet. Publish to get your shareable link.</span><button type="button" class="btn btn-primary btn-sm" data-action="publish">Publish</button></div>'}
+    <div class="dash-stats">
+      ${tile('Views, 7 days', fmtNum(st.views7), live && stats ? `${fmtNum(st.views30)} in 30 days` : '')}
+      ${tile('Taps, 7 days', fmtNum(st.taps7), live && stats ? `${fmtNum(st.taps30)} in 30 days` : '')}
+      ${tile('Products', `${n}<small>/4</small>`, '')}
+      ${tile('Template', e(tpl.name), '')}
+    </div>
+    <p class="hint dash-hint">${stats === false ? 'Numbers couldn\'t load right now. Your store is fine.' : live ? 'Views count each visitor once a day. Taps are presses on your buy buttons.' : 'Views and taps start counting once your store is live.'}</p>
+    <div class="dash-profile">
+      <span class="dash-avatar">${avatar ? `<img src="${e(avatar)}" alt="" width="48" height="48">` : e(initialsOf(c.displayName))}</span>
+      <span class="dash-info"><b>${e(c.displayName || 'Add your name')}</b><span>${e(content.links?.instagram ? `@${content.links.instagram}` : c.niche || c.headline || '')}</span></span>
+      <button type="button" class="btn btn-secondary btn-sm" data-jump="sec-bio">Edit profile</button>
+    </div>
+    <div class="dash-sub"><h3>Products</h3><span class="hint">Drag or use the arrows to change the order on your store.</span></div>
+    <ol class="dash-products">${rows}</ol>
+    ${n < 4 ? `<button type="button" class="btn btn-primary btn-block" data-action="add-menu" ${busy.has('add') ? 'disabled' : ''}>${busy.has('add') ? '<span class="spin"></span>Thinking of another idea…' : '+ Add product'}</button>` : '<p class="hint" style="text-align:center">4 products is the limit. Delete one to add another.</p>'}
+  </section>`;
+}
+
+function moveProduct(pid, to) {
+  const from = content.products.findIndex((x) => x.id === pid);
+  if (from === -1 || to < 0 || to >= content.products.length || to === from) return;
+  const [p] = content.products.splice(from, 1);
+  content.products.splice(to, 0, p);
+  renderAll(); updatePreview(); scheduleSave();
+}
+
+function addOwnProduct() {
+  if (content.products.length >= 4) return;
+  const p = { id: shortId(), title: '', format: 'ebook', priceInr: 199, priceRationale: '', shortDescription: '', description: '', benefits: [], ctaLabel: 'Get it now', buyUrl: '' };
+  content.products.push(p);
+  renderAll(); updatePreview(); scheduleSave(); // shows "Not saved: Product n needs a title" until filled in
+  const card = document.querySelector(`#sec-products [data-pid="${CSS.escape(p.id)}"]`);
+  card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => card?.querySelector('[data-pf="title"]')?.focus({ preventScroll: true }), 350);
+  toast('New product added. Give it a title, a one-line pitch and a price.', { action: () => { content.products = content.products.filter((x) => x.id !== p.id); renderAll(); updatePreview(); scheduleSave(); } });
+}
+
+function addMenu() {
+  openSheet((sheet, close) => {
+    sheet.setAttribute('aria-label', 'Add a product');
+    sheet.innerHTML = `<h3>Add a product</h3><p class="sub">You can have up to 4. Everything stays editable.</p>
+      <div class="add-opts">
+        <button type="button" class="add-opt" data-add="ai">${ICON_SPARK}<b>Suggest one with AI</b><span>A new idea that fits your niche, priced for Indian buyers.</span></button>
+        <button type="button" class="add-opt" data-add="own"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><b>Add my own</b><span>Start blank and fill in your own product.</span></button>
+      </div>
+      <div class="row"><button type="button" class="btn btn-secondary" data-x>Cancel</button></div>`;
+    sheet.querySelector('[data-x]').onclick = close;
+    sheet.querySelector('[data-add="ai"]').onclick = () => { close(); addProduct(); };
+    sheet.querySelector('[data-add="own"]').onclick = () => { close(); addOwnProduct(); };
+  });
+}
+
+// Drag to reorder (mouse/trackpad). Phones use the arrow buttons.
+let dragId = null;
+document.addEventListener('dragstart', (ev) => {
+  const row = ev.target.closest?.('.dash-row');
+  if (!row) return;
+  dragId = row.dataset.rid;
+  row.classList.add('dragging');
+  ev.dataTransfer.effectAllowed = 'move';
+  try { ev.dataTransfer.setData('text/plain', dragId); } catch { /* ignore */ }
+});
+document.addEventListener('dragover', (ev) => {
+  const row = ev.target.closest?.('.dash-row');
+  if (!row || !dragId) return;
+  ev.preventDefault();
+  document.querySelectorAll('.dash-row.drop').forEach((r) => r.classList.remove('drop'));
+  if (row.dataset.rid !== dragId) row.classList.add('drop');
+});
+document.addEventListener('drop', (ev) => {
+  const row = ev.target.closest?.('.dash-row');
+  if (!row || !dragId) return;
+  ev.preventDefault();
+  const to = content.products.findIndex((x) => x.id === row.dataset.rid);
+  const id0 = dragId; dragId = null;
+  moveProduct(id0, to);
+});
+document.addEventListener('dragend', () => { dragId = null; document.querySelectorAll('.dash-row.dragging,.dash-row.drop').forEach((r) => r.classList.remove('dragging', 'drop')); });
+
 // ---------------------------------------------------------------- clicks
 
 document.addEventListener('click', (ev) => {
@@ -996,6 +1183,7 @@ document.addEventListener('click', (ev) => {
       case 'regen-all': return regenAll();
       case 'gen-cover': return generateCover();
       case 'browse-templates': return openTemplateGallery();
+      case 'add-menu': return addMenu();
       case 't-add': case 't-delete': case 't-up': case 't-down': case 't-tidy': case 't-use': case 't-keep': return testimonialAction(action, t);
       case 'remove-cover': return removeImage('cover');
       case 'remove-avatar': return removeImage('avatar');
@@ -1006,6 +1194,21 @@ document.addEventListener('click', (ev) => {
       case 'copy-link': track('store_link_copied', { storeId: id, meta: { where: 'editor' } }); return copyText(`${location.origin}/s/${store.slug}`).then((ok) => toast(ok ? 'Link copied' : 'Couldn\'t copy. Long-press the link instead.'));
       default: return undefined;
     }
+  }
+  const jump = t.closest('[data-jump]')?.dataset.jump;
+  if (jump) { ev.preventDefault(); jumpTo(jump); return undefined; }
+  const rid = t.closest('[data-rid]')?.dataset.rid;
+  if (rid && t.closest('[data-rmove]')) {
+    const i = content.products.findIndex((x) => x.id === rid);
+    moveProduct(rid, t.closest('[data-rmove]').dataset.rmove === 'up' ? i - 1 : i + 1);
+    document.querySelector(`[data-rid="${CSS.escape(rid)}"] [data-rmove="${t.closest('[data-rmove]').dataset.rmove}"]:not([disabled])`)?.focus();
+    return undefined;
+  }
+  if (rid && t.closest('[data-redit]')) {
+    const card = document.querySelector(`#sec-products [data-pid="${CSS.escape(rid)}"]`);
+    card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => card?.querySelector('[data-pf="title"]')?.focus({ preventScroll: true }), 350);
+    return undefined;
   }
   const theme = t.closest('[data-theme]')?.dataset.theme;
   if (theme) { switchTemplate(theme); return undefined; }

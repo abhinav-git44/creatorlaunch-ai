@@ -434,6 +434,31 @@ test('events need a session, are de-duplicated, and store events need the edit k
   assert.equal(noKey.status, 202);
 });
 
+test('dashboard stats: real views and taps for the creator only, per product, zero for drafts', async () => {
+  const { id, editKey, content } = await makeStore();
+  const draft = await call(`/api/stores/${id}?stats=1`, { key: editKey });
+  assert.equal(draft.status, 200, draft.text);
+  assert.deepEqual([draft.json.views7, draft.json.taps7], [0, 0], 'a draft has no numbers');
+  assert.equal((await call(`/api/stores/${id}?stats=1`, { key: 'wrong' })).status, 404, 'needs the edit key');
+  const slug = `stats-${Date.now().toString(36)}`;
+  assert.equal((await call(`/api/stores/${id}/publish`, { method: 'POST', key: editKey, body: { slug } })).status, 200);
+  const pid = content.products[1].id;
+  const viewer = (s) => call('/api/events', { method: 'POST', session: s, body: { events: [{ id: sid(), name: 'storefront_viewed', slug }] } });
+  const s1 = sid(); const s2 = sid();
+  await viewer(s1); await viewer(s1); await viewer(s2); // same visitor twice in a day counts once
+  await call('/api/events', { method: 'POST', session: s1, body: { events: [
+    { id: sid(), name: 'product_cta_clicked', slug, meta: { destination: 'whatsapp', format: 'ebook', position: 2, pid } },
+    { id: sid(), name: 'product_cta_clicked', slug, meta: { destination: 'whatsapp', format: 'ebook', position: 2, pid } },
+    { id: sid(), name: 'product_cta_clicked', slug, meta: { destination: 'instagram', format: 'ebook', position: 1, pid: content.products[0].id } },
+  ] } });
+  const r = await call(`/api/stores/${id}?stats=1`, { key: editKey });
+  assert.equal(r.json.views7, 2, 'two visitors');
+  assert.equal(r.json.taps7, 3);
+  assert.equal(r.json.tapsByProduct[pid], 2, 'taps per product');
+  assert.equal(r.json.tapsByDestination.whatsapp, 2);
+  assert.equal(r.json.views30, 2);
+});
+
 test('metrics endpoint is locked down', async () => {
   assert.equal((await call('/api/metrics')).status, 401);
   assert.equal((await call('/api/metrics', { headers: { 'x-admin-token': 'wrong-token-wrong-token-xx' } })).status, 401);

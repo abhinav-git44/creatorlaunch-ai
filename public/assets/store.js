@@ -18,7 +18,7 @@ document.addEventListener('click', (ev) => {
   const cta = ev.target.closest('[data-cta]');
   if (cta) {
     const destination = cta.dataset.cta;
-    if (live) track('product_cta_clicked', { slug, meta: { destination, format: cta.dataset.format, position: Number(cta.dataset.position) || 0 } });
+    if (live) track('product_cta_clicked', { slug, meta: { destination, format: cta.dataset.format, position: Number(cta.dataset.position) || 0, pid: cta.dataset.pid } });
     if (destination === 'info') {
       const note = document.getElementById(`note-${cta.dataset.pid}`);
       if (note) {

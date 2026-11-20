@@ -19,8 +19,18 @@ function sampleProduct(n, format = 'ebook', price = 523) {
   };
 }
 
-function respond(schema, prompt) {
+function respond(schema, prompt, imageText = '') {
   const props = Object.keys(schema?.properties || {});
+  if (props.includes('profileReading')) {
+    const unreadable = imageText.includes('UNREADABLE');
+    const handle = (imageText.match(/HANDLE:([a-z0-9._]+)/) || [])[1] || 'riya.fit';
+    return {
+      profileReading: unreadable
+        ? { readable: false, handleSeen: '', audienceSize: 'unknown', summary: '' }
+        : { readable: true, handleSeen: handle, audienceSize: 'mid', summary: 'Fitness creator posting 15-minute home workouts and desk-posture fixes for working women; bio mentions online coaching.' },
+      ...respond({ properties: { products: {} } }, prompt),
+    };
+  }
   if (props.includes('products')) {
     return {
       inputQuality: prompt.includes('FAKE_VAGUE') ? 'needs_more_detail' : 'ok',
@@ -30,7 +40,7 @@ function respond(schema, prompt) {
       products: [sampleProduct(1, 'ebook', 523), sampleProduct(2, 'one_on_one_call', 99999), sampleProduct(3, 'cohort_course', 10)],
     };
   }
-  if (props.includes('bio')) return { headline: 'A brand new headline', bio: 'A brand new bio.' };
+  if (props.includes('bio')) return { headline: prompt.includes('What we read in screenshots') ? 'Profile-aware headline' : 'A brand new headline', bio: 'A brand new bio.' };
   if (props.includes('priceRationale') && props.length === 2) return { priceInr: 777, priceRationale: 'Fresh rationale.' };
   return sampleProduct(9, 'template_pack', 349);
 }
@@ -79,7 +89,8 @@ export function startFakeGemini(port = 0) {
       res.writeHead(200, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(out) }] } }] }));
     }
-    const out = respond(json.generationConfig?.responseSchema, prompt);
+    const imageText = (json.contents?.[0]?.parts || []).filter((p) => p.inlineData).map((p) => Buffer.from(p.inlineData.data, 'base64').toString('latin1')).join(' ');
+    const out = respond(json.generationConfig?.responseSchema, prompt, imageText);
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ candidates: [{ content: { parts: [{ text: '```json\n' + JSON.stringify(out) + '\n```' }] }, finishReason: 'STOP' }] }));
   });

@@ -91,6 +91,7 @@ function profileCard() {
     <div class="card-head"><h2>Your profile</h2>
       <button type="button" class="btn btn-ghost" data-action="regen-bio" ${busy.has('bio') ? 'disabled' : ''}>${busy.has('bio') ? '<span class="spin"></span>Rewriting…' : '↻ Rewrite with AI'}</button>
     </div>
+    ${store.input?.profileNotes ? `<div class="profile-read"><b>Built from your Instagram screenshots${store.input.handle ? ` (@${e(store.input.handle)})` : ''}</b>${e(store.input.profileNotes)}</div>` : ''}
     ${fieldInput('creator.displayName', 'Name on your store', c.displayName, { max: LIMITS.displayName })}
     ${fieldInput('creator.headline', 'Headline', c.headline, { max: LIMITS.headline, hint: 'One line on what you help people do.' })}
     ${fieldInput('creator.bio', 'Bio', c.bio, { max: LIMITS.bio, multiline: true, rows: 4 })}

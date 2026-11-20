@@ -63,7 +63,7 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
     await page.fill('#handle', 'bad..handle');
     await page.click('#submit');
     check(await page.isVisible('#e-handle'), 'invalid Instagram username: caught');
-    check((await page.textContent('#ig-block')).includes("won't read your Instagram"), 'never implies Instagram data was retrieved');
+    check((await page.textContent('#ig-block')).includes("don't log in to or scrape Instagram"), 'never implies Instagram is logged into or scraped');
     await page.fill('#handle', '');
     await page.click('[data-mode="describe"]');
     await page.fill('#description', 'I teach yoga to office workers FAKE_TIMEOUT');
@@ -276,6 +276,34 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
       if (!okCreate || !okEdit) throw new Error(`FAILED: overflow on app screens at ${w}×${h}`);
     }
     check(true, 'create + editor screens: no horizontal overflow at all 7 viewports');
+
+    // ------------------------------------------------------------ 10. Instagram screenshot import
+    console.log('10. Instagram screenshot import');
+    const mock = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })).newPage();
+    await mock.setContent(`<body style="font-family:sans-serif;margin:0;padding:16px"><b style="font-size:20px">riya.fit</b>
+      <div style="display:flex;gap:24px;margin:16px 0"><div style="width:80px;height:80px;border-radius:50%;background:#e4572e"></div>
+      <div><b>214</b> posts</div><div><b>38.2K</b> followers</div><div><b>301</b> following</div></div>
+      <b>Riya | Desk-job back pain coach</b><p>15-min home workouts for working women 🧘‍♀️<br>DM "BACK" for 1:1 coaching</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px">${'<div style="aspect-ratio:1;background:#ddd"></div>'.repeat(9)}</div></body>`);
+    const screenshot = await mock.screenshot({ type: 'png' });
+    await mock.context().close();
+    const ig = await phone.newPage();
+    watch(ig);
+    await ig.goto(BASE + '/');
+    await ig.click('[data-mode="instagram"]');
+    await ig.setInputFiles('#shot-input', { name: 'profile.png', mimeType: 'image/png', buffer: screenshot });
+    await ig.waitForSelector('.shot img');
+    check(await ig.isVisible('#own-wrap'), 'screenshot thumbnail shown with the "my own account" confirmation');
+    check((await ig.textContent('#desc-label')).includes('optional'), 'description becomes optional once a screenshot is added');
+    await ig.click('#submit');
+    check(await ig.isVisible('#e-ownAccount'), 'cannot generate from screenshots without confirming account ownership');
+    await shot(ig, 'after-11-instagram-screenshot-phone', true);
+    await ig.check('#own-account');
+    await ig.click('#submit');
+    await ig.waitForURL(/\/edit\//, { timeout: 15000 });
+    await ig.waitForSelector('.profile-read');
+    check((await ig.textContent('.profile-read')).includes('@riya.fit'), 'editor shows what was read from the screenshots (username taken from the image)');
+    await shot(ig, 'after-12-editor-from-screenshots-phone');
 
     check(errors.length === 0, `no browser errors or unexpected dialogs${errors.length ? ': ' + errors.join(' | ') : ''}`);
     console.log(`\nAll browser checks passed (${passed}).`);

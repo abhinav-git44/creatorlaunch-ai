@@ -35,7 +35,17 @@
         <div class="prefix-input"><span>@</span><input id="handle" name="handle" type="text" inputmode="text" enterkeyhint="next" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="fitwithriya" maxlength="60"></div>
         <div class="field-error" id="e-handle" hidden></div>
       </div>
-      <div class="note"><span aria-hidden="true">ℹ️</span><span><strong>We won't read your Instagram profile.</strong>Instagram blocks automated access, so we use your username for your store link and an Instagram button. Tell us what you post about below, which works just as well.</span></div>
+      <div class="field" id="f-screenshots">
+        <span class="label">Screenshots of your profile <span class="optional">(recommended)</span></span>
+        <p class="hint" style="margin:0 0 8px">Your profile page with the bio visible, plus 1–2 posts or Reels. AI reads only what's in the images. We don't store them.</p>
+        <div class="shots" id="shots" aria-live="polite"></div>
+        <label class="btn btn-secondary btn-block shot-pick" for="shot-input">+ Add screenshots (up to 3)</label>
+        <input id="shot-input" type="file" accept="image/png,image/jpeg,image/webp" multiple class="sr-only">
+        <label class="check" id="own-wrap" hidden><input type="checkbox" id="own-account"><span>These are screenshots of <b>my own</b> Instagram account</span></label>
+        <div class="field-error" id="e-screenshots" hidden></div>
+        <div class="field-error" id="e-ownAccount" hidden></div>
+      </div>
+      <div class="note"><span aria-hidden="true">ℹ️</span><span><strong>We don't log in to or scrape Instagram.</strong>Instagram blocks automated access, so we read the screenshots you upload instead, or you can just describe yourself below.</span></div>
     </div>
 
     <div class="field" id="f-name">

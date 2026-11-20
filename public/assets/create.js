@@ -21,6 +21,7 @@ const EXAMPLES = {
 
 const state = { mode: 'describe', niche: '', audienceSize: '', language: 'en', tone: 'friendly' };
 let pending = null; // last generation result, kept so a failed save never loses it
+let shots = []; // { mime, data (base64), url (data URL for the thumbnail) } — kept in memory only
 let controller = null;
 let timer = null;
 
@@ -54,7 +55,9 @@ function setMode(mode) {
   pressed(document.querySelector('.segmented'), 'data-mode', mode);
   $('#ig-block').hidden = mode !== 'instagram';
   $('#name-optional').hidden = mode !== 'instagram';
-  $('#desc-label').textContent = mode === 'instagram' ? 'What do you post about, and who follows you?' : 'What do you do, and who do you help?';
+  $('#desc-label').textContent = mode === 'instagram'
+    ? (shots.length ? 'Anything to add? (optional with screenshots)' : 'What do you post about, and who follows you?')
+    : 'What do you do, and who do you help?';
   saveDraft();
 }
 
@@ -98,9 +101,9 @@ function loadDraft() {
 // ---------------------------------------------------------------- errors
 
 function clearErrors() {
-  for (const f of ['handle', 'name', 'description']) {
+  for (const f of ['handle', 'name', 'description', 'screenshots', 'ownAccount']) {
     $(`#e-${f}`).hidden = true;
-    $(`#f-${f}`).classList.remove('invalid');
+    $(`#f-${f}`)?.classList.remove('invalid');
   }
   $('#form-error').hidden = true;
 }
@@ -110,8 +113,8 @@ function showErrors(errors) {
     const el = $(`#e-${f}`);
     if (!el) continue;
     el.textContent = msg; el.hidden = false;
-    $(`#f-${f}`).classList.add('invalid');
-    first = first || $(`#${f}`);
+    $(`#f-${f}`)?.classList.add('invalid');
+    first = first || $(`#${f}`) || (f === 'ownAccount' ? $('#own-account') : null);
   }
   first?.focus();
 }
@@ -147,17 +150,25 @@ function fail(message, action) {
 async function generate(extra = '') {
   clearErrors();
   const input = readInput();
+  const useShots = state.mode === 'instagram' && shots.length > 0;
+  input.ownAccount = useShots ? $('#own-account').checked : undefined;
   if (extra) input.description = `${input.description.trim()}\n${extra.trim()}`.slice(0, 600);
-  const check = checkCreatorInput(input);
+  const check = checkCreatorInput(input, { hasScreenshots: useShots });
   if (!check.ok) { show('form'); showErrors(check.errors); return; }
   if (extra) { $('#description').value = input.description; saveDraft(); }
 
   track('creator_input_submitted', { meta: { mode: check.value.mode, language: check.value.language, tone: check.value.tone, niche: check.value.niche, audienceSize: check.value.audienceSize, hasHandle: Boolean(check.value.handle) } });
+  $('#generating h2').textContent = useShots ? 'Reading your profile and building your store…' : 'Building your store…';
   show('generating');
   startTimer();
   controller = new AbortController();
   try {
-    const result = await api('/api/generate', { method: 'POST', body: { input }, timeoutMs: 70000, signal: controller.signal });
+    const body = { input };
+    if (useShots) body.images = shots.map(({ mime, data }) => ({ mime, data }));
+    const result = await api('/api/generate', { method: 'POST', body, timeoutMs: 70000, signal: controller.signal });
+    if (result.profileRead?.readable) {
+      try { sessionStorage.setItem('cl_profile_read', JSON.stringify(result.profileRead)); } catch { /* ignore */ }
+    }
     pending = result;
     if (result.inputQuality === 'needs_more_detail' && result.clarifyingQuestion) {
       $('#clarify-q').textContent = result.clarifyingQuestion;
@@ -189,6 +200,62 @@ async function saveAndOpen() {
     else throw err;
   }
 }
+
+// ---------------------------------------------------------------- screenshots
+
+// Downscale in the browser (≤1280px, JPEG) so uploads stay small and fast on mobile data.
+function loadShot(file) {
+  return new Promise((resolve, reject) => {
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) return reject(new Error('Use JPG, PNG or WebP screenshots.'));
+    if (file.size > 15 * 1024 * 1024) return reject(new Error('That image is too large.'));
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Couldn\'t read that image.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Couldn\'t read that image.'));
+      img.onload = () => {
+        const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        const url = c.toDataURL('image/jpeg', 0.82);
+        resolve({ mime: 'image/jpeg', data: url.split(',')[1], url });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderShots() {
+  const box = $('#shots');
+  box.innerHTML = '';
+  shots.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'shot';
+    const img = document.createElement('img');
+    img.src = s.url; img.alt = `Screenshot ${i + 1}`;
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = '×'; b.setAttribute('aria-label', `Remove screenshot ${i + 1}`);
+    b.onclick = () => { shots.splice(i, 1); renderShots(); };
+    d.append(img, b);
+    box.appendChild(d);
+  });
+  $('#own-wrap').hidden = shots.length === 0;
+  $('.shot-pick').textContent = shots.length >= 3 ? 'Maximum 3 screenshots' : shots.length ? '+ Add another screenshot' : '+ Add screenshots (up to 3)';
+  $('.shot-pick').classList.toggle('disabled', shots.length >= 3);
+  setMode(state.mode);
+}
+
+$('#shot-input').addEventListener('change', async (e) => {
+  $('#e-screenshots').hidden = true;
+  const files = [...e.target.files].slice(0, 3 - shots.length);
+  for (const f of files) {
+    try { shots.push(await loadShot(f)); } catch (err) { $('#e-screenshots').textContent = err.message; $('#e-screenshots').hidden = false; }
+  }
+  e.target.value = '';
+  renderShots();
+});
 
 // ---------------------------------------------------------------- wire up
 

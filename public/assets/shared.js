@@ -65,6 +65,7 @@ export const LIMITS = {
   ctaLabel: 32,
   clarifyingQuestion: 220,
   url: 300,
+  profileNotes: 700,
 };
 
 export const MAX_PRICE = 100000;
@@ -425,7 +426,9 @@ export function checkDescription(raw) {
 }
 
 // Validate the onboarding payload (shared by the form and /api/generate).
-export function checkCreatorInput(input) {
+// opts.hasScreenshots: Instagram screenshots are attached to this request, so the description
+// becomes optional (the AI reads the profile instead) but the creator must confirm ownership.
+export function checkCreatorInput(input, { hasScreenshots = false } = {}) {
   const errors = {};
   const out = {
     mode: input?.mode === 'instagram' ? 'instagram' : 'describe',
@@ -436,14 +439,27 @@ export function checkCreatorInput(input) {
     audienceSize: AUDIENCE_SIZES[input?.audienceSize] ? input.audienceSize : '',
     language: LANGUAGES[input?.language] ? input.language : 'en',
     tone: TONES[input?.tone] ? input.tone : 'friendly',
+    // Short text summary of what the AI read in the creator's own profile screenshots (set by the
+    // server after reading them; the images themselves are never stored).
+    profileNotes: cleanText(input?.profileNotes, LIMITS.profileNotes, { multiline: true }),
   };
+  if (out.profileNotes) out.fromScreenshots = true;
   if (out.mode === 'instagram' || input?.handle) {
     const h = checkHandle(input?.handle);
-    if (!h.ok && out.mode === 'instagram') errors.handle = h.message;
+    const handleTyped = String(input?.handle || '').trim() !== '';
+    // With screenshots the username can come from the image, so it is only required if typed wrong.
+    if (!h.ok && out.mode === 'instagram' && (handleTyped || !hasScreenshots)) errors.handle = h.message;
     if (h.ok) out.handle = h.handle;
   }
-  const d = checkDescription(out.description);
-  if (!d.ok) errors.description = d.message;
-  if (!out.name && !out.handle) errors.name = 'Add your name (or your Instagram username) so we can put it on your store.';
+  const profileSource = hasScreenshots || Boolean(out.profileNotes);
+  if (!profileSource || out.description) {
+    const d = checkDescription(out.description);
+    // With screenshots, a short extra note is fine; only reject clear gibberish.
+    if (!d.ok && (!profileSource || d.reason === 'gibberish')) errors.description = d.message;
+  }
+  if (hasScreenshots && input?.ownAccount !== true) {
+    errors.ownAccount = 'Please confirm these screenshots are of your own Instagram account.';
+  }
+  if (!out.name && !out.handle && !profileSource) errors.name = 'Add your name (or your Instagram username) so we can put it on your store.';
   return { ok: Object.keys(errors).length === 0, errors, value: out };
 }

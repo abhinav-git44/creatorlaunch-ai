@@ -193,3 +193,17 @@ details.more summary { cursor: pointer; font-size: 14px; font-weight: 650; color
 .skeleton { background: linear-gradient(90deg, #EEF0F6 25%, #F6F7FB 50%, #EEF0F6 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 10px; height: 16px; margin-bottom: 10px; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 footer.site { text-align: center; font-size: 13px; color: var(--muted); padding: 24px 16px 40px; }
+
+/* ---------- screenshot import */
+.shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+.shots:empty { display: none; }
+.shot { position: relative; border-radius: 10px; overflow: hidden; border: 1.5px solid var(--line); background: #fff; aspect-ratio: 9 / 16; }
+.shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.shot button { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(23, 21, 43, .75); color: #fff; font-size: 16px; line-height: 1; cursor: pointer; }
+.shot-pick { cursor: pointer; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; margin-top: 12px; cursor: pointer; }
+.check input { width: 20px; height: 20px; margin-top: 1px; accent-color: var(--primary); flex: none; }
+.profile-read { background: var(--primary-soft); border-radius: 12px; padding: 12px 14px; font-size: 14px; color: #3B3270; margin-bottom: 14px; }
+.profile-read b { display: block; margin-bottom: 4px; }
+.field > label.shot-pick { display: flex; margin-bottom: 0; font-weight: 650; }
+.field > label.check { display: flex; font-weight: 500; margin-bottom: 0; }

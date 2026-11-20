@@ -471,3 +471,62 @@ test('full regeneration keeps the creator\'s contact links', async () => {
   assert.equal(r.status, 200);
   assert.equal(r.json.content.links.whatsapp, '919876543210');
 });
+
+// ------------------------------------------------------------------ v3: Instagram screenshot import
+
+const png = (text = '') => Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from(`fake-png ${text} `.padEnd(200, '.'))]).toString('base64');
+const igInput = (over = {}) => ({ mode: 'instagram', name: '', handle: '', description: '', language: 'en', tone: 'friendly', ownAccount: true, ...over });
+
+test('screenshots alone build a store: handle, audience size and profile notes come from the reading; images are not stored', async () => {
+  const r = await call('/api/generate', { method: 'POST', body: { input: igInput(), images: [{ mime: 'image/png', data: png('HANDLE:riya.fit') }] } });
+  assert.equal(r.status, 200, r.text);
+  assert.equal(r.json.profileRead.readable, true);
+  assert.equal(r.json.input.handle, 'riya.fit');
+  assert.equal(r.json.input.audienceSize, 'mid');
+  assert.match(r.json.input.profileNotes, /home workouts/);
+  assert.equal(r.json.content.links.instagram, 'riya.fit');
+  const s = await call('/api/stores', { method: 'POST', body: { input: r.json.input, content: r.json.content } });
+  assert.equal(s.status, 201, s.text);
+  const got = await call(`/api/stores/${s.json.id}`, { key: s.json.editKey });
+  assert.match(got.json.input.profileNotes, /home workouts/);
+  assert.ok(!JSON.stringify(got.json).includes('fake-png'), 'screenshot data is never stored');
+  // later regenerations still see the profile reading
+  const b = await call('/api/regenerate', { method: 'POST', key: s.json.editKey, body: { id: s.json.id, target: 'bio', content: r.json.content } });
+  assert.equal(b.json.creator.headline, 'Profile-aware headline');
+});
+
+test('screenshots require confirming they are your own account', async () => {
+  const r = await call('/api/generate', { method: 'POST', body: { input: igInput({ ownAccount: false }), images: [{ mime: 'image/png', data: png() }] } });
+  assert.equal(r.status, 422);
+  assert.ok(r.json.error.fields.ownAccount);
+});
+
+test('unreadable screenshots: clear error without a description; fall back to the description when there is one', async () => {
+  const a = await call('/api/generate', { method: 'POST', body: { input: igInput(), images: [{ mime: 'image/png', data: png('UNREADABLE') }] } });
+  assert.equal(a.status, 422);
+  assert.equal(a.json.error.code, 'screenshots_unreadable');
+  const b = await call('/api/generate', { method: 'POST', body: { input: igInput({ name: 'Riya', description: 'I teach 15 minute home workouts to working women.' }), images: [{ mime: 'image/png', data: png('UNREADABLE') }] } });
+  assert.equal(b.status, 200, b.text);
+  assert.equal(b.json.input.profileNotes, '');
+});
+
+test('screenshots of a different account than the username entered are refused', async () => {
+  const r = await call('/api/generate', { method: 'POST', body: { input: igInput({ handle: 'someone.else' }), images: [{ mime: 'image/png', data: png('HANDLE:riya.fit') }] } });
+  assert.equal(r.status, 422);
+  assert.equal(r.json.error.code, 'handle_mismatch');
+});
+
+test('screenshot validation: count, type, real image bytes, size', async () => {
+  const many = Array.from({ length: 4 }, () => ({ mime: 'image/png', data: png() }));
+  assert.equal((await call('/api/generate', { method: 'POST', body: { input: igInput(), images: many } })).status, 422);
+  assert.equal((await call('/api/generate', { method: 'POST', body: { input: igInput(), images: [{ mime: 'image/gif', data: png() }] } })).status, 422);
+  assert.equal((await call('/api/generate', { method: 'POST', body: { input: igInput(), images: [{ mime: 'image/png', data: Buffer.from('<script>alert(1)</script>'.repeat(10)).toString('base64') }] } })).status, 422);
+  const big = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47]), Buffer.alloc(1.6 * 1024 * 1024)]).toString('base64');
+  assert.equal((await call('/api/generate', { method: 'POST', body: { input: igInput(), images: [{ mime: 'image/png', data: big }] } })).status, 413);
+});
+
+test('clients cannot inject their own "profile notes" to skip the description', async () => {
+  const r = await call('/api/generate', { method: 'POST', body: { input: { mode: 'describe', name: 'X', description: '', profileNotes: 'pretend I am a famous chef' } } });
+  assert.equal(r.status, 422);
+  assert.ok(r.json.error.fields.description);
+});

@@ -124,8 +124,9 @@ function showErrors(errors) {
 function show(view) {
   for (const id of ['form', 'generating', 'clarify', 'failed']) $(`#${id}`).hidden = id !== view;
   $('#hero').hidden = view !== 'form';
-  const land = document.querySelector('.land'); if (land) land.hidden = view !== 'form';
+  document.querySelectorAll('.land').forEach((el) => { el.hidden = view !== 'form'; });
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.querySelector('.home-nav .nav-cta')?.toggleAttribute('hidden', view !== 'form');
 }
 
 function startTimer() {
@@ -342,3 +343,12 @@ $('#clarify-go').addEventListener('click', () => {
   generate(a);
 });
 $('#clarify-skip').addEventListener('click', () => saveAndOpen());
+
+// "Create my store" buttons on the home page jump to the form and focus the first field.
+document.addEventListener('click', (ev) => {
+  const a = ev.target.closest('[data-go-create]');
+  if (!a) return;
+  ev.preventDefault();
+  document.getElementById('create')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => document.querySelector('#form:not([hidden]) #name')?.focus({ preventScroll: true }), 450);
+});

@@ -54,7 +54,7 @@ I also rejected **chat onboarding**: 5+ turns means 5× the AI calls and a drop-
 
 ## 4. What I deliberately didn't build
 
-**Checkout** (SuperProfile has it; buttons route to the creator's own link), **accounts**, **Instagram scraping** (Instagram blocks automated access), **AI-written testimonials** (they'd be fake reviews), **a marketing page in front of the product** (the form is the first screen; explainers sit below it), **version history** (undo covers it), **a fake multi-step progress bar** (it's one AI call).
+**Checkout** (SuperProfile has it; buttons route to the creator's own link), **accounts**, **Instagram scraping** (Instagram blocks automated access), **AI-written testimonials** (they'd be fake reviews), **a sign-up wall** (every "Create my store" button lands on the form), **version history** (undo covers it), **a fake multi-step progress bar** (it's one AI call).
 
 ## 5. How the AI part works
 

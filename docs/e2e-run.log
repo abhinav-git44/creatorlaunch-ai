@@ -87,7 +87,8 @@
   ✓ public storefront shows the confirmed testimonial
   ✓ unticking consent removes it from the public page
 13. Template library (10 free templates)
-  ✓ home gallery lists 10 templates
+  ✓ no separate template section or nav link on the landing page
+  ✓ Browse templates opens a gallery of 10 templates
   ✓ every template is labelled Free
   ✓ all 10 thumbnails load
   ✓ filter: Fitness shows the fitness template
@@ -152,4 +153,4 @@
   ✓ home hero: six format circles
   ✓ no browser errors or unexpected dialogs
 
-All browser checks passed (137).
+All browser checks passed (138).

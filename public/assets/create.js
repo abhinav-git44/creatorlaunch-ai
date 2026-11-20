@@ -1,4 +1,4 @@
-import { api, ApiError, saveEditKey, savedStores, forgetStore, confirmSheet } from './ui.js';
+import { api, ApiError, saveEditKey, savedStores, forgetStore, confirmSheet, openSheet } from './ui.js';
 import { track } from './analytics.js';
 import { checkCreatorInput, checkHandle, AUDIENCE_SIZES, escapeHtml } from './shared.js';
 import { TEMPLATES, applyTemplate } from './templates.js';
@@ -127,7 +127,6 @@ function showErrors(errors) {
 function show(view) {
   for (const id of ['form', 'generating', 'clarify', 'failed']) $(`#${id}`).hidden = id !== view;
   $('#hero').hidden = view !== 'form';
-  $('#templates').hidden = view !== 'form';
   $('#my-stores').hidden = view !== 'form' || !savedStores().length;
   document.querySelectorAll('.land').forEach((el) => { el.hidden = view !== 'form'; });
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -439,13 +438,6 @@ function syncTemplatePick() {
   $('#tpl-pick-sub').textContent = t ? 'Your store will be built in this template. You can switch any time.' : 'AI chooses one of 10 free templates to suit your niche. You can switch any time.';
   $('#tpl-pick-browse').textContent = t ? 'Change' : 'Browse templates';
   $('#tpl-pick-clear').hidden = !t;
-  document.querySelectorAll('#home-gallery .tpl-card').forEach((c) => {
-    const on = c.dataset.tid === chosenTemplate;
-    c.classList.toggle('current', on);
-    const b = c.querySelector('[data-gaction="use"]');
-    b.textContent = on ? 'Selected' : 'Use template';
-    b.setAttribute('aria-pressed', String(on));
-  });
 }
 
 function chooseTemplate(id) {
@@ -459,17 +451,24 @@ function chooseTemplate(id) {
   }
 }
 
-const homeGallery = $('#home-gallery');
-if (homeGallery) {
-  homeGallery.innerHTML = galleryHtml({ prefix: 'hg' });
-  const sampleSrc = (key) => dataUrlFor(SAMPLE_IMAGES[key]);
+// "Browse templates" in the create form opens the gallery in a sheet (no separate home section).
+const sampleSrc = (k) => dataUrlFor(SAMPLE_IMAGES[k]);
+function openHomeGallery() {
   Object.keys(SAMPLE_IMAGES).forEach((k) => sampleSrc(k)); // warm up so previews show images
-  mountGallery(homeGallery.firstElementChild, {
-    onUse: chooseTemplate,
-    previewContent: (id) => sampleContent(id, applyTemplate({}, id)),
-    assetSrc: sampleSrc,
-    useLabel: 'Use this template',
+  openSheet((sheet, close) => {
+    sheet.classList.add('sheet-wide');
+    sheet.setAttribute('aria-label', 'Choose your storefront template');
+    sheet.innerHTML = `<div class="tpv-head"><div><h3>Choose a template</h3><p class="sub">All 10 are free. Previews use fictional example creators; your store is filled with your own details.</p></div>
+      <button type="button" class="btn btn-secondary" data-close>Close</button></div>${galleryHtml({ current: chosenTemplate, prefix: 'hg' })}`;
+    sheet.querySelector('[data-close]').onclick = close;
+    mountGallery(sheet.querySelector('[data-gallery]'), {
+      onUse: (tid) => { close(); chooseTemplate(tid); },
+      previewContent: (tid) => sampleContent(tid, applyTemplate({}, tid)),
+      assetSrc: sampleSrc,
+      useLabel: 'Use this template',
+    });
   });
-  $('#tpl-pick-clear').addEventListener('click', () => chooseTemplate(''));
-  syncTemplatePick();
 }
+$('#tpl-pick-browse').addEventListener('click', openHomeGallery);
+$('#tpl-pick-clear').addEventListener('click', () => chooseTemplate(''));
+syncTemplatePick();

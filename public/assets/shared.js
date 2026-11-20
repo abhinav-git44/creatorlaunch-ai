@@ -1,3 +1,5 @@
+import { TEMPLATES, normaliseSections } from './templates.js';
+
 // Shared, dependency-free module used by BOTH the browser and the serverless API.
 // Holds the content schema, validation, sanitisation, pricing guardrails and input checks,
 // so the client and server can never disagree about what a valid storefront is.
@@ -34,11 +36,8 @@ export const FORMATS = {
   membership: { label: 'Membership', min: 99, max: 1999, unit: '/month' },
 };
 
-export const THEMES = {
-  minimal: 'Modern Minimal',
-  bold: 'Creator Bold',
-  elegant: 'Elegant Premium',
-};
+// Storefront templates (10, all free) are defined centrally in templates.js; THEMES maps id -> name.
+export const THEMES = Object.fromEntries(Object.entries(TEMPLATES).map(([k, t]) => [k, t.name]));
 
 // All accents meet WCAG AA (≥4.5:1) for white text and on the Elegant theme's cream background.
 export const ACCENTS = {
@@ -50,7 +49,27 @@ export const ACCENTS = {
   ocean: '#1A62D6',
   plum: '#7A3E9D',
   charcoal: '#2B2B2B',
+  gold: '#7D5E00',
 };
+
+// Brighter version of an accent for dark templates (text and buttons on near-black backgrounds):
+// same hue, lightness raised to ~66%, so every accent stays recognisable and readable there.
+export function accentLight(hex) {
+  const n = parseInt(String(hex).slice(1), 16);
+  let r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0; let sat = 0;
+  if (max !== min) {
+    const d = max - min;
+    sat = d / (1 - Math.abs(max + min - 1));
+    h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h *= 60; if (h < 0) h += 360;
+  }
+  const l = 0.66; const s2 = Math.min(sat, 0.85);
+  const c = (1 - Math.abs(2 * l - 1)) * s2; const x = c * (1 - Math.abs(((h / 60) % 2) - 1)); const m = l - c / 2;
+  [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return `#${[r, g, b].map((v) => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('')}`;
+}
 
 export const LIMITS = {
   displayName: 60,
@@ -138,6 +157,14 @@ export function cleanWhatsapp(value) {
   if (digits.length === 10 && /^[6-9]/.test(digits)) digits = `91${digits}`;
   if (!/^[1-9][0-9]{10,14}$/.test(digits)) throw new ValidationError('WhatsApp number should be a 10-digit Indian mobile number (or include the country code)');
   return digits;
+}
+
+// Optional public contact email. Plain address only, so it can go into a mailto: link safely.
+export function cleanEmail(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  if (raw.length > 120 || !/^[^\s@<>()",;:]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(raw)) throw new ValidationError('Email should look like name@example.com');
+  return raw.toLowerCase();
 }
 
 export function whatsappLink(number, text) {
@@ -275,11 +302,12 @@ export function normaliseProduct(p, { source = 'ai' } = {}) {
 }
 
 export function normaliseLinks(l, { strict = true } = {}) {
-  const links = { whatsapp: '', instagram: '', website: '' };
+  const links = { whatsapp: '', instagram: '', website: '', email: '' };
   if (!l || typeof l !== 'object') return links;
   const attempt = (fn) => { try { return fn(); } catch (err) { if (strict) throw err; return ''; } };
   links.whatsapp = attempt(() => cleanWhatsapp(l.whatsapp));
   links.website = attempt(() => cleanUrl(l.website, 'Website link'));
+  links.email = attempt(() => cleanEmail(l.email));
   const h = normaliseHandle(l.instagram);
   if (h) {
     if (HANDLE_RE.test(h)) links.instagram = h;
@@ -311,10 +339,17 @@ export function normaliseCreator(c) {
   return out;
 }
 
+// Template settings. Anything that doesn't fit the chosen template (a background or font it
+// doesn't offer) falls back to that template's default, so every stored theme renders cleanly.
 export function normaliseTheme(t) {
+  const style = TEMPLATES[t?.style] ? t.style : 'minimal';
+  const tpl = TEMPLATES[style];
   return {
-    style: THEMES[t?.style] ? t.style : 'minimal',
-    accent: ACCENTS[t?.accent] ? t.accent : 'indigo',
+    style,
+    accent: ACCENTS[t?.accent] ? t.accent : tpl.defaults.accent,
+    background: Object.hasOwn(tpl.backgrounds, t?.background || '') ? t.background : tpl.defaults.background,
+    font: tpl.fonts.includes(t?.font) ? t.font : tpl.defaults.font,
+    sections: normaliseSections(t?.sections),
   };
 }
 

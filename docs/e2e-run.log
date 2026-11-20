@@ -2,7 +2,7 @@
   ✓ empty input: field error shown, no AI call
   ✓ gibberish: caught with an example of what to write
   ✓ invalid Instagram username: caught
-  ✓ never implies Instagram data was retrieved
+  ✓ never implies Instagram is logged into or scraped
   ✓ AI timeout: friendly retry state
   ✓ input preserved after a failure
   ✓ invalid AI JSON: friendly retry state
@@ -55,6 +55,74 @@
   ✓ bold theme: no horizontal overflow at 360, 390, 430, 768, 1024, 1440, 1920
   ✓ elegant theme: no horizontal overflow at 360, 390, 430, 768, 1024, 1440, 1920
   ✓ create + editor screens: no horizontal overflow at all 7 viewports
+10. Instagram screenshot import
+  ✓ screenshot thumbnail shown with the "my own account" confirmation
+  ✓ description becomes optional once a screenshot is added
+  ✓ cannot generate from screenshots without confirming account ownership
+  ✓ editor shows what was read from the screenshots (username taken from the image)
+11. Profile picture and cover image
+  ✓ profile picture uploaded (cropped in the browser) and shown in the editor
+  ✓ AI cover drawn from the description and labelled "AI-generated"
+  ✓ undo removes the AI cover
+  ✓ uploaded cover replaces it, without the AI label
+  ✓ live preview (sandboxed) shows the cover and the profile picture
+  ✓ images persist after reload
+  ✓ non-image file refused with a plain message
+  ✓ product image uploaded and shown on that product in the editor
+  ✓ other products stay without an image
+  ✓ removing a product image can be undone
+  ✓ live preview shows the product image
+  ✓ public storefront shows the cover and the profile picture
+  ✓ public storefront shows the product image on that product
+  ✓ bold theme shows the product image
+  ✓ bold theme shows both images with no horizontal overflow
+  ✓ elegant theme shows the product image
+  ✓ elegant theme shows both images with no horizontal overflow
+12. Testimonials
+  ✓ adding a testimonial focuses its text box
+  ✓ not shown on the store until confirmed
+  ✓ AI tidy-up suggests a cleaned version of the real message, side by side
+  ✓ tidied version applied (undo available)
+  ✓ ticking consent marks it "Shown on your store"
+  ✓ public storefront shows the confirmed testimonial
+  ✓ unticking consent removes it from the public page
+13. Template library (10 free templates)
+  ✓ home gallery lists 10 templates
+  ✓ every template is labelled Free
+  ✓ all 10 thumbnails load
+  ✓ filter: Fitness shows the fitness template
+  ✓ filter: Premium includes Elite Gold and Elegant Premium
+  ✓ search "yoga" finds Fitness & Wellness
+  ✓ search with no match shows a way back
+  ✓ clear shows all 10 again
+  ✓ preview renders a full storefront in that template
+  ✓ home preview uses a fictional example creator
+  ✓ preview switches to desktop width
+  ✓ Use this template: chosen template shown in the create form
+  ✓ "Let AI pick" clears the choice
+  ✓ store is built in the template picked before generating
+  ✓ AI products populate the chosen template in the preview
+  ✓ AI-generated products render as cards
+  ✓ missing bio: editable placeholder marked "Needed to publish"
+  ✓ switching through all 10 templates keeps every product
+  ✓ current template shown in the editor
+  ✓ template switch can be undone
+  ✓ editor gallery marks the template in use
+  ✓ editor preview shows the creator's own profile in the template
+  ✓ Use this template from the editor gallery
+  ✓ template, background, accent, font and section settings persist after refresh
+  ✓ published storefront renders the customised template at 390px
+  ✓ published storefront renders the customised template at 1440px
+  ✓ minimal: public page renders on phone (360px) and desktop (1440px) with no overflow
+  ✓ bold: public page renders on phone (360px) and desktop (1440px) with no overflow
+  ✓ elegant: public page renders on phone (360px) and desktop (1440px) with no overflow
+  ✓ fitness: public page renders on phone (360px) and desktop (1440px) with no overflow
+  ✓ edupro: public page renders on phone (360px) and desktop (1440px) with no overflow
+  ✓ studio: public page renders on phone (360px) and desktop (1440px) with no overflow
+  ✓ authority: public page renders on phone (360px) and desktop (1440px) with no overflow
+  ✓ lifestyle: public page renders on phone (360px) and desktop (1440px) with no overflow
+  ✓ spotlight: public page renders on phone (360px) and desktop (1440px) with no overflow
+  ✓ elite: public page renders on phone (360px) and desktop (1440px) with no overflow
   ✓ no browser errors or unexpected dialogs
 
-All browser checks passed (49).
+All browser checks passed (113).

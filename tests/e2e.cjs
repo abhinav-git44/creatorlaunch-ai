@@ -157,7 +157,7 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
     await page.waitForTimeout(700);
     await shot(page, 'after-06-preview-bold-phone');
     const pv = page.frameLocator('#preview-mobile');
-    check((await pv.locator('body').getAttribute('class')) === 't-bold', 'preview shows the chosen theme');
+    check((await pv.locator('body').getAttribute('data-theme')) === 'bold', 'preview shows the chosen theme');
     await page.click('.preview-overlay [data-close]');
 
     // ------------------------------------------------------------ 6. publish, copy, open independently
@@ -183,7 +183,7 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
     await shot(vp, 'after-08-public-bold-phone', true);
     const html = await vp.content();
     check(html.includes('My Edited Desk Relief Guide') && html.includes('₹249'), 'saved title and price appear publicly');
-    check((await vp.locator('body').getAttribute('class')) === 't-bold', 'published page uses the chosen theme');
+    check((await vp.locator('body').getAttribute('data-theme')) === 'bold', 'published page uses the chosen theme');
     const firstCta = vp.locator('[data-cta]').first();
     check((await firstCta.getAttribute('href')) === 'https://rzp.io/l/desk-relief', 'product 1 button opens the payment link');
     check((await firstCta.getAttribute('rel')).includes('noopener'), 'external links open safely (noopener)');
@@ -415,6 +415,152 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
     check(!(await tp.$('.testimonials')), 'unticking consent removes it from the public page');
     await shot(ig, 'after-14-testimonials-editor-phone');
     await tp.close();
+
+    // ------------------------------------------------------------ 13. Template library
+    console.log('13. Template library (10 free templates)');
+    const home = await (await browser.newContext(phoneCtx)).newPage();
+    watch(home);
+    await home.goto(BASE + '/#templates');
+    await home.waitForSelector('#home-gallery .tpl-card');
+    check((await home.$$('#home-gallery .tpl-card')).length === 10, 'home gallery lists 10 templates');
+    check((await home.$$('#home-gallery .tpl-card .tpl-free')).length === 10, 'every template is labelled Free');
+    const thumbsOk = await home.$$eval('#home-gallery .tpl-thumb img', async (imgs) => {
+      await Promise.all(imgs.map((i) => { i.loading = 'eager'; return i.decode().catch(() => {}); }));
+      return imgs.every((i) => i.naturalWidth > 0);
+    });
+    check(thumbsOk, 'all 10 thumbnails load');
+    await home.click('#home-gallery [data-gfilter="fitness"]');
+    check((await home.$$('#home-gallery .tpl-card:not([hidden])')).length === 1, 'filter: Fitness shows the fitness template');
+    await home.click('#home-gallery [data-gfilter="premium"]');
+    const premium = await home.$$eval('#home-gallery .tpl-card:not([hidden])', (els) => els.map((x) => x.dataset.tid));
+    check(premium.includes('elite') && premium.includes('elegant'), 'filter: Premium includes Elite Gold and Elegant Premium');
+    await home.click('#home-gallery [data-gfilter="all"]');
+    await home.fill('#home-gallery [data-gsearch]', 'yoga');
+    check((await home.$$eval('#home-gallery .tpl-card:not([hidden])', (els) => els.map((x) => x.dataset.tid))).join() === 'fitness', 'search "yoga" finds Fitness & Wellness');
+    await home.fill('#home-gallery [data-gsearch]', 'zzzz');
+    check(await home.isVisible('#home-gallery [data-gempty]'), 'search with no match shows a way back');
+    await home.click('#home-gallery [data-gclear]');
+    check((await home.$$('#home-gallery .tpl-card:not([hidden])')).length === 10, 'clear shows all 10 again');
+    await home.click('#home-gallery [data-tid="spotlight"] [data-gaction="preview"]');
+    await home.waitForSelector('.sheet .tpv-stage iframe');
+    const tpv = home.frameLocator('.sheet .tpv-stage iframe');
+    check((await tpv.locator('body').getAttribute('data-theme')) === 'spotlight' && (await tpv.locator('.card').count()) > 0, 'preview renders a full storefront in that template');
+    check((await tpv.locator('.name').textContent()).includes('Rohan'), 'home preview uses a fictional example creator');
+    await home.click('.sheet [data-dev="desktop"]');
+    check((await home.getAttribute('.sheet .tpv-stage', 'class')).includes('tpv-desktop'), 'preview switches to desktop width');
+    await home.click('.sheet [data-use]');
+    await home.waitForSelector('.sheet', { state: 'detached' });
+    check((await home.textContent('#tpl-pick-name')) === 'Creator Spotlight', 'Use this template: chosen template shown in the create form');
+    await home.click('#tpl-pick-clear');
+    check((await home.textContent('#tpl-pick-name')) === 'Picked for you', '"Let AI pick" clears the choice');
+    await home.click('#home-gallery [data-tid="fitness"] [data-gaction="use"]');
+    await home.fill('#name', 'Asha Rao');
+    await home.fill('#description', 'I teach yoga and simple strength routines to women over 40 who work from home and want to feel stronger.');
+    await home.click('#submit');
+    await home.waitForURL(/\/edit\//, { timeout: 20000 });
+    await home.waitForSelector('#sec-template');
+    check((await home.getAttribute('#sec-template [data-theme="fitness"]', 'aria-pressed')) === 'true', 'store is built in the template picked before generating');
+    const pf3 = home.frameLocator('#preview-mobile, #preview').first();
+    await home.click('#bottom-bar [data-action="preview"]');
+    await home.waitForSelector('#preview-mobile');
+    await home.waitForTimeout(600);
+    check((await home.frameLocator('#preview-mobile').locator('body').getAttribute('data-theme')) === 'fitness', 'AI products populate the chosen template in the preview');
+    check((await home.frameLocator('#preview-mobile').locator('.card').count()) >= 2, 'AI-generated products render as cards');
+    await home.click('.preview-overlay [data-close]');
+    void pf3;
+
+    // Missing required info: placeholder in the preview, publishing blocked.
+    const bioBefore = await home.inputValue('[data-bind="creator.bio"]');
+    await home.fill('[data-bind="creator.bio"]', '');
+    await home.click('#bottom-bar [data-action="preview"]');
+    await home.waitForSelector('#preview-mobile');
+    await home.waitForTimeout(700);
+    check((await home.frameLocator('#preview-mobile').locator('.ph').first().textContent()).includes('Needed to publish'), 'missing bio: editable placeholder marked "Needed to publish"');
+    await home.click('.preview-overlay [data-close]');
+    await home.fill('[data-bind="creator.bio"]', bioBefore);
+
+    // Switch through all 10 in the editor: content kept, saved, rendered.
+    const titlesBefore = await home.$$eval('#sec-products [data-pf="title"]', (els) => els.map((x) => x.value));
+    for (const tid of ['minimal', 'bold', 'elegant', 'fitness', 'edupro', 'studio', 'authority', 'lifestyle', 'spotlight', 'elite']) {
+      await home.click(`#sec-template [data-theme="${tid}"]`);
+      await home.waitForTimeout(250);
+    }
+    const titlesAfter = await home.$$eval('#sec-products [data-pf="title"]', (els) => els.map((x) => x.value));
+    check(JSON.stringify(titlesBefore) === JSON.stringify(titlesAfter), 'switching through all 10 templates keeps every product');
+    check((await home.textContent('.tpl-current b')) === 'Elite Gold', 'current template shown in the editor');
+    await home.click('.toast >> text=Undo');
+    check((await home.getAttribute('#sec-template [data-theme="spotlight"]', 'aria-pressed')) === 'true', 'template switch can be undone');
+    // Gallery inside the editor: preview with the creator's own content, then use.
+    await home.click('[data-action="browse-templates"]');
+    await home.waitForSelector('.sheet [data-gallery]');
+    check((await home.$$('.sheet .tpl-card')).length === 10 && (await home.isVisible('.sheet .tpl-card.current[data-tid="spotlight"]')), 'editor gallery marks the template in use');
+    await home.click('.sheet [data-tid="authority"] [data-gaction="preview"]');
+    await home.waitForSelector('.sheet .tpv-stage iframe');
+    check((await home.frameLocator('.sheet .tpv-stage iframe').locator('.name').first().textContent()).includes('Asha Rao'), 'editor preview shows the creator\'s own profile in the template');
+    await home.click('.sheet [data-use]');
+    await home.waitForSelector('.sheet', { state: 'detached' });
+    check((await home.getAttribute('#sec-template [data-theme="authority"]', 'aria-pressed')) === 'true', 'Use this template from the editor gallery');
+    // Customise: background, accent, font, section order + visibility.
+    await home.click('#sec-template [data-bg="graphite"]');
+    await home.click('#sec-template [data-accent="emerald"]');
+    await home.click('#sec-template [data-font="sans"]');
+    await home.click('#sec-template [data-sec="contact"] [data-sec-move="up"]');
+    await home.click('#sec-template [data-sec="contact"] [data-sec-move="up"]');
+    await home.uncheck('#sec-template [data-sec="testimonials"] input[data-sec-toggle]');
+    await home.fill('[data-link="email"]', 'asha@example.com');
+    await home.waitForTimeout(300);
+    await waitSaved(home);
+    await home.reload();
+    await home.waitForSelector('#sec-template');
+    const persisted = {
+      tpl: await home.getAttribute('#sec-template [data-theme="authority"]', 'aria-pressed'),
+      bg: await home.getAttribute('#sec-template [data-bg="graphite"]', 'aria-pressed'),
+      acc: await home.getAttribute('#sec-template [data-accent="emerald"]', 'aria-pressed'),
+      font: await home.getAttribute('#sec-template [data-font="sans"]', 'aria-pressed'),
+      first: await home.getAttribute('#sec-template .sec-row:first-child', 'data-sec'),
+      hidden: await home.isChecked('#sec-template [data-sec="testimonials"] input[data-sec-toggle]'),
+    };
+    check(persisted.tpl === 'true' && persisted.bg === 'true' && persisted.acc === 'true' && persisted.font === 'true' && persisted.first === 'contact' && !persisted.hidden, 'template, background, accent, font and section settings persist after refresh');
+    // Publish and check the public page at phone and desktop size.
+    await home.click('#bottom-bar [data-action="publish"]');
+    await home.waitForSelector('.sheet');
+    await home.fill('.sheet input', `tpl-${Date.now().toString(36)}`);
+    await home.click('.sheet >> text=Publish now');
+    await home.waitForSelector('text=Your store is live!');
+    const tplUrl = await home.getAttribute('.sheet a[href*="/s/"]', 'href');
+    for (const [w, h] of [[390, 844], [1440, 900]]) {
+      const v = await (await browser.newContext({ viewport: { width: w, height: h } })).newPage();
+      watch(v);
+      await v.goto(tplUrl);
+      const ok = await v.evaluate(() => ({
+        theme: document.body.dataset.theme,
+        dark: document.body.classList.contains('dark'),
+        contactFirst: document.querySelector('main > section')?.classList.contains('contact'),
+        email: Boolean(document.querySelector('a[href="mailto:asha@example.com"]')),
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        cards: document.querySelectorAll('.card').length,
+      }));
+      check(ok.theme === 'authority' && ok.dark && ok.contactFirst && ok.email && !ok.overflow && ok.cards >= 2, `published storefront renders the customised template at ${w}px`);
+      await shot(v, `after-14-template-authority-${w}`, true);
+    }
+    // Every template on the public page at phone and desktop: renders, no sideways scroll.
+    await home.click('.sheet >> text=Keep editing');
+    await home.waitForSelector('.sheet', { state: 'detached' });
+    const pubPhone = await (await browser.newContext({ viewport: { width: 360, height: 800 }, isMobile: true })).newPage();
+    const pubDesk = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+    watch(pubPhone); watch(pubDesk);
+    for (const tid of ['minimal', 'bold', 'elegant', 'fitness', 'edupro', 'studio', 'authority', 'lifestyle', 'spotlight', 'elite']) {
+      await home.click(`#sec-template [data-theme="${tid}"]`);
+      await home.waitForTimeout(300);
+      await waitSaved(home);
+      let good = true;
+      for (const v of [pubPhone, pubDesk]) {
+        await v.goto(`${tplUrl}?t=${tid}`);
+        const r = await v.evaluate(() => ({ theme: document.body.dataset.theme, overflow: document.documentElement.scrollWidth > window.innerWidth, ctas: document.querySelectorAll('.cta').length }));
+        good = good && r.theme === tid && !r.overflow && r.ctas >= 2;
+      }
+      check(good, `${tid}: public page renders on phone (360px) and desktop (1440px) with no overflow`);
+    }
 
     check(errors.length === 0, `no browser errors or unexpected dialogs${errors.length ? ': ' + errors.join(' | ') : ''}`);
     console.log(`\nAll browser checks passed (${passed}).`);

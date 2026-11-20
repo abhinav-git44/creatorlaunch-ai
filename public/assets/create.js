@@ -1,6 +1,9 @@
 import { api, ApiError, saveEditKey, lastStore } from './ui.js';
 import { track } from './analytics.js';
 import { checkCreatorInput, checkHandle, AUDIENCE_SIZES } from './shared.js';
+import { TEMPLATES, applyTemplate } from './templates.js';
+import { galleryHtml, mountGallery, dataUrlFor, thumbUrl } from './gallery.js';
+import { sampleContent, SAMPLE_IMAGES } from './template-samples.js';
 
 const $ = (s) => document.querySelector(s);
 const NICHES = ['Fitness', 'Finance', 'Cooking', 'Exam prep', 'Design', 'Astrology', 'Fashion & beauty', 'Career & skills', 'Other'];
@@ -124,6 +127,7 @@ function showErrors(errors) {
 function show(view) {
   for (const id of ['form', 'generating', 'clarify', 'failed']) $(`#${id}`).hidden = id !== view;
   $('#hero').hidden = view !== 'form';
+  $('#templates').hidden = view !== 'form';
   document.querySelectorAll('.land').forEach((el) => { el.hidden = view !== 'form'; });
   window.scrollTo({ top: 0, behavior: 'smooth' });
   document.querySelector('.home-nav .nav-cta')?.toggleAttribute('hidden', view !== 'form');
@@ -193,7 +197,10 @@ async function generate(extra = '') {
 async function saveAndOpen() {
   show('generating');
   try {
-    const { id, editKey } = await api('/api/stores', { method: 'POST', body: { input: pending.input, content: pending.content } });
+    // A template the creator picked overrides the one the AI suggested. Their content is untouched.
+    const content = chosenTemplate ? { ...pending.content, theme: applyTemplate(pending.content.theme, chosenTemplate) } : pending.content;
+    const { id, editKey } = await api('/api/stores', { method: 'POST', body: { input: pending.input, content } });
+    try { sessionStorage.removeItem('cl_template'); } catch { /* ignore */ }
     saveEditKey(id, editKey);
     try { sessionStorage.removeItem('cl_draft'); } catch { /* ignore */ }
     location.href = `/edit/${id}#k=${encodeURIComponent(editKey)}`;
@@ -352,3 +359,53 @@ document.addEventListener('click', (ev) => {
   document.getElementById('create')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   setTimeout(() => document.querySelector('#form:not([hidden]) #name')?.focus({ preventScroll: true }), 450);
 });
+
+
+// ---------------------------------------------------------------- template gallery (step 1)
+// Optional: pick a template before generating. Without one, the AI picks a template that suits
+// the niche. Either way the creator can switch in the editor without losing anything.
+let chosenTemplate = '';
+try { chosenTemplate = TEMPLATES[sessionStorage.getItem('cl_template')] ? sessionStorage.getItem('cl_template') : ''; } catch { /* ignore */ }
+
+function syncTemplatePick() {
+  const t = TEMPLATES[chosenTemplate];
+  $('#tpl-pick-img').hidden = !t;
+  if (t) $('#tpl-pick-img').src = thumbUrl(chosenTemplate);
+  $('#tpl-pick-name').textContent = t ? t.name : 'Picked for you';
+  $('#tpl-pick-sub').textContent = t ? 'Your store will be built in this template. You can switch any time.' : 'AI chooses one of 10 free templates to suit your niche. You can switch any time.';
+  $('#tpl-pick-browse').textContent = t ? 'Change' : 'Browse templates';
+  $('#tpl-pick-clear').hidden = !t;
+  document.querySelectorAll('#home-gallery .tpl-card').forEach((c) => {
+    const on = c.dataset.tid === chosenTemplate;
+    c.classList.toggle('current', on);
+    const b = c.querySelector('[data-gaction="use"]');
+    b.textContent = on ? 'Selected' : 'Use template';
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+
+function chooseTemplate(id) {
+  chosenTemplate = TEMPLATES[id] ? id : '';
+  try { if (chosenTemplate) sessionStorage.setItem('cl_template', chosenTemplate); else sessionStorage.removeItem('cl_template'); } catch { /* ignore */ }
+  syncTemplatePick();
+  if (chosenTemplate) {
+    track('template_selected', { meta: { template: chosenTemplate, where: 'home' } });
+    document.getElementById('create')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => document.querySelector('#form:not([hidden]) #name')?.focus({ preventScroll: true }), 450);
+  }
+}
+
+const homeGallery = $('#home-gallery');
+if (homeGallery) {
+  homeGallery.innerHTML = galleryHtml({ prefix: 'hg' });
+  const sampleSrc = (key) => dataUrlFor(SAMPLE_IMAGES[key]);
+  Object.keys(SAMPLE_IMAGES).forEach((k) => sampleSrc(k)); // warm up so previews show images
+  mountGallery(homeGallery.firstElementChild, {
+    onUse: chooseTemplate,
+    previewContent: (id) => sampleContent(id, applyTemplate({}, id)),
+    assetSrc: sampleSrc,
+    useLabel: 'Use this template',
+  });
+  $('#tpl-pick-clear').addEventListener('click', () => chooseTemplate(''));
+  syncTemplatePick();
+}

@@ -41,7 +41,8 @@ export async function api(path, { method = 'GET', body, key, timeoutMs = 20000, 
 // ---------------------------------------------------------------- toasts
 
 let toastBox;
-export function toast(message, { type = 'info', action, actionLabel, duration = 4500 } = {}) {
+// key: a toast with the same key replaces the previous one (e.g. repeated template switches).
+export function toast(message, { type = 'info', action, actionLabel, duration = 4500, key = '' } = {}) {
   if (!toastBox) {
     toastBox = document.createElement('div');
     toastBox.className = 'toasts';
@@ -49,8 +50,10 @@ export function toast(message, { type = 'info', action, actionLabel, duration = 
     toastBox.setAttribute('aria-live', 'polite');
     document.body.appendChild(toastBox);
   }
+  if (key) toastBox.querySelectorAll(`[data-key="${key}"]`).forEach((x) => x.remove());
   const el = document.createElement('div');
   el.className = `toast ${type === 'error' ? 'error' : ''}`;
+  if (key) el.dataset.key = key;
   const text = document.createElement('span');
   text.className = 'grow';
   text.textContent = message;

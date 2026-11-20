@@ -383,7 +383,7 @@ test('payment links and WhatsApp numbers are validated; unsafe links are refused
   const ok = await call(`/api/stores/${id}`, { method: 'PATCH', key: editKey, body: { content: good } });
   assert.equal(ok.status, 200, ok.text);
   assert.equal(ok.json.content.products[0].buyUrl, 'https://rzp.io/l/yoga-guide');
-  assert.deepEqual(ok.json.content.links, { whatsapp: '919876543210', instagram: 'riya.fit', website: 'https://riya.example.com/' });
+  assert.deepEqual(ok.json.content.links, { whatsapp: '919876543210', instagram: 'riya.fit', website: 'https://riya.example.com/', email: '' });
 });
 
 test('public page routes each button to a real destination and opens external links safely', async () => {
@@ -616,6 +616,46 @@ test('product image: uploaded per product, kept on save, shown on that product c
   const r = await call('/api/regenerate', { method: 'POST', key: editKey, body: { id, target: 'product', productId: first.id } });
   assert.equal(r.status, 200, r.text);
   assert.equal(r.json.product.cover, undefined, 'a new AI product idea carries no image');
+});
+
+test('templates: all 10 save, persist and publish; switching keeps content; bad settings fall back', async () => {
+  const { TEMPLATE_IDS, TEMPLATES, applyTemplate } = await import('../public/assets/templates.js');
+  const { escapeHtml } = await import('../public/assets/shared.js');
+  assert.equal(TEMPLATE_IDS.length, 10);
+  const { id, editKey, content } = await makeStore();
+  content.links = { ...content.links, email: 'Hello@Example.com' };
+  const pub = await call(`/api/stores/${id}/publish`, { method: 'POST', key: editKey, body: { slug: `tpl-${Date.now().toString(36)}` } });
+  assert.equal(pub.status, 200, pub.text);
+  const signatures = new Set();
+  for (const tid of TEMPLATE_IDS) {
+    const theme = applyTemplate(content.theme, tid);
+    const p = await call(`/api/stores/${id}`, { method: 'PATCH', key: editKey, body: { content: { ...content, theme } } });
+    assert.equal(p.status, 200, `${tid}: ${p.text}`);
+    assert.deepEqual(p.json.content.theme, theme, `${tid} settings persist exactly`);
+    assert.deepEqual(p.json.content.products.map((x) => x.title), content.products.map((x) => x.title), `${tid}: products unchanged`);
+    assert.equal(p.json.content.creator.bio, content.creator.bio, `${tid}: profile unchanged`);
+    const again = await call(`/api/stores/${id}`, { key: editKey });
+    assert.equal(again.json.content.theme.style, tid, `${tid} survives a reload`);
+    const page = await call(`/s/${pub.json.slug}?v=${tid}`);
+    assert.equal(page.status, 200);
+    assert.ok(page.text.includes(`data-theme="${tid}"`), `${tid} is what the public page renders`);
+    for (const prod of content.products) assert.ok(page.text.includes(escapeHtml(prod.title)), `${tid} shows "${prod.title}"`);
+    assert.ok(page.text.includes(TEMPLATES[tid].backgrounds[TEMPLATES[tid].defaults.background].page), `${tid} uses its background`);
+    assert.ok(page.text.includes('href="mailto:hello@example.com"'), `${tid} shows the contact email`);
+    // The structural markup (tags + classes, text stripped) differs between every template.
+    const body = page.text.slice(page.text.indexOf('<body'), page.text.indexOf('<footer'));
+    signatures.add(body.replace(/>[^<]*</g, '><').replace(/\s(id|href|src|data-[a-z-]+|aria-[a-z-]+|style)="[^"]*"/g, ''));
+  }
+  assert.equal(signatures.size, 10, 'every template has its own page structure');
+
+  const bad = await call(`/api/stores/${id}`, { method: 'PATCH', key: editKey, body: { content: { ...content, theme: { style: 'elite', accent: 'neon', background: 'mist', font: 'comic', sections: { order: ['contact', 'nope', 'contact'], hidden: ['products', 'testimonials'] } } } } });
+  assert.equal(bad.status, 200, bad.text);
+  assert.deepEqual(bad.json.content.theme, { style: 'elite', accent: 'gold', background: 'onyx', font: 'serif', sections: { order: ['contact', 'products', 'testimonials'], hidden: ['testimonials'] } }, 'unknown values fall back to the template defaults; products can never be hidden');
+  const page = await call(`/s/${pub.json.slug}?v=order`);
+  assert.ok(page.text.indexOf('id="c-h"') < page.text.indexOf('id="o-h"'), 'section order applied: contact before products');
+
+  const old = await call(`/api/stores/${id}`, { method: 'PATCH', key: editKey, body: { content: { ...content, theme: { style: 'bold', accent: 'rose' } } } });
+  assert.deepEqual(old.json.content.theme, { style: 'bold', accent: 'rose', background: 'cream', font: 'sans', sections: { order: ['products', 'testimonials', 'contact'], hidden: [] } }, 'stores saved before templates keep their look');
 });
 
 test('AI cover: built from the description and name, returns an image; needs a description; failures are plain', async () => {

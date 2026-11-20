@@ -1,5 +1,7 @@
 import { api, ApiError, toast, openSheet, askInstruction, confirmSheet, saveEditKey, getEditKey, copyText } from './ui.js';
-import { FORMATS, THEMES, ACCENTS, LANGUAGES, TONES, LIMITS, MAX_PRICE, escapeHtml as e, formatInr, typicalRange, cleanUrl, cleanWhatsapp, normaliseLinks, assetUrl, MAX_TESTIMONIALS, TESTIMONIAL_SOURCES, shortId } from './shared.js';
+import { FORMATS, ACCENTS, accentLight, LANGUAGES, TONES, LIMITS, MAX_PRICE, escapeHtml as e, formatInr, typicalRange, cleanUrl, cleanWhatsapp, cleanEmail, normaliseLinks, assetUrl, MAX_TESTIMONIALS, TESTIMONIAL_SOURCES, shortId } from './shared.js';
+import { TEMPLATES, TEMPLATE_IDS, FONTS, SECTIONS, applyTemplate, normaliseSections } from './templates.js';
+import { galleryHtml, mountGallery, thumbUrl } from './gallery.js';
 import { track, setEditKey } from './analytics.js';
 import { renderStorefront } from './render.js';
 
@@ -36,7 +38,7 @@ async function load() {
     return showFatal('We couldn\'t load your store.', err.message, true);
   }
   content = clone(store.content);
-  content.links = content.links || { whatsapp: '', instagram: store.input?.handle || '', website: '' };
+  content.links = content.links || { whatsapp: '', instagram: store.input?.handle || '', website: '', email: '' };
   content.tone = content.tone || store.input?.tone || 'friendly';
   savedJson = JSON.stringify(content);
   app.setAttribute('aria-busy', 'false');
@@ -499,20 +501,83 @@ function linksCard() {
     <p class="hint" style="margin:-6px 0 14px">There's no checkout in this prototype, so tell us how buyers should reach you. Buttons use a product's payment link first, then WhatsApp, then Instagram.</p>
     <div class="field"><label for="l-whatsapp">WhatsApp number <span class="optional">(recommended)</span></label><input id="l-whatsapp" type="tel" inputmode="tel" autocomplete="tel" data-link="whatsapp" maxlength="20" placeholder="98765 43210" value="${e(l.whatsapp ? `+${l.whatsapp}` : '')}"></div>
     <div class="field"><label for="l-instagram">Instagram username</label><div class="prefix-input"><span>@</span><input id="l-instagram" type="text" autocapitalize="off" spellcheck="false" data-link="instagram" maxlength="40" value="${e(l.instagram || '')}"></div></div>
-    <div class="field" style="margin-bottom:0"><label for="l-website">Website or other link <span class="optional">(optional)</span></label><input id="l-website" type="url" inputmode="url" autocapitalize="off" spellcheck="false" data-link="website" maxlength="${LIMITS.url}" placeholder="https://" value="${e(l.website || '')}"></div>
+    <div class="field"><label for="l-website">Website or other link <span class="optional">(optional)</span></label><input id="l-website" type="url" inputmode="url" autocapitalize="off" spellcheck="false" data-link="website" maxlength="${LIMITS.url}" placeholder="https://" value="${e(l.website || '')}"></div>
+    <div class="field" style="margin-bottom:0"><label for="l-email">Contact email <span class="optional">(optional, shown on your store)</span></label><input id="l-email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" data-link="email" maxlength="120" placeholder="you@example.com" value="${e(l.email || '')}"></div>
   </section>`;
 }
 
+// ---------------------------------------------------------------- template + look
+// Step 1 of the flow: pick one of 10 free templates (or keep the one the AI picked), then
+// customise it. Switching only changes content.theme, so profile, products, images, links and
+// testimonials are never touched, and every switch can be undone.
+
+function templateCard() {
+  const th = content.theme;
+  const tpl = TEMPLATES[th.style] || TEMPLATES.minimal;
+  const dark = tpl.backgrounds[th.background]?.dark;
+  const strip = TEMPLATE_IDS.map((tid) => `<button type="button" class="tpl-mini" data-theme="${tid}" aria-pressed="${th.style === tid}" title="${e(TEMPLATES[tid].name)}"><img src="${thumbUrl(tid)}" alt="" width="390" height="520" loading="lazy"><span>${e(TEMPLATES[tid].name)}</span></button>`).join('');
+  const bgs = Object.entries(tpl.backgrounds).map(([k, b]) => `<button type="button" class="bg-opt" data-bg="${k}" aria-pressed="${th.background === k}"><span class="bg-sw" style="background:${b.page};color:${b.ink}">Aa</span>${e(b.label)}</button>`).join('');
+  const accents = Object.entries(ACCENTS).map(([k, hex]) => `<button type="button" class="accent-dot" data-accent="${k}" aria-pressed="${th.accent === k}" style="background:${dark ? accentLight(hex) : hex}" aria-label="${k} accent colour"></button>`).join('');
+  const fonts = tpl.fonts.map((f) => `<button type="button" data-font="${f}" aria-pressed="${th.font === f}" style="font-family:${e(FONTS[f].stack)}">${e(FONTS[f].label)}</button>`).join('');
+  const secs = th.sections.order.map((k, i, a) => {
+    const hidden = th.sections.hidden.includes(k);
+    return `<li class="sec-row${hidden ? ' off' : ''}" data-sec="${k}">
+      <span class="sec-name">${e(SECTIONS[k])}${k === 'products' ? ' <span class="optional">(always shown)</span>' : ''}</span>
+      <span class="sec-ctrl">
+        <button type="button" class="icon-btn" data-sec-move="up" ${i === 0 ? 'disabled' : ''} aria-label="Move ${e(SECTIONS[k])} up">↑</button>
+        <button type="button" class="icon-btn" data-sec-move="down" ${i === a.length - 1 ? 'disabled' : ''} aria-label="Move ${e(SECTIONS[k])} down">↓</button>
+        ${k === 'products' ? '' : `<label class="switch"><input type="checkbox" data-sec-toggle ${hidden ? '' : 'checked'}><span>${hidden ? 'Hidden' : 'Shown'}</span></label>`}
+      </span></li>`;
+  }).join('');
+  return `<section class="card" id="sec-template">
+    <div class="card-head"><h2>Template <span class="optional">· all 10 free</span></h2>
+      <button type="button" class="btn btn-secondary" data-action="browse-templates">Browse all templates</button></div>
+    <div class="tpl-current"><img src="${thumbUrl(th.style)}" alt="" width="390" height="520"><div><b>${e(tpl.name)}</b><span>For ${e(tpl.audience.charAt(0).toLowerCase() + tpl.audience.slice(1))}. Switching keeps your profile, products, images and links.</span></div></div>
+    <div class="tpl-strip" role="group" aria-label="Switch template">${strip}</div>
+    <div class="field" style="margin-top:16px"><span class="label">Background</span><div class="bg-opts" role="group" aria-label="Background">${bgs}</div></div>
+    <div class="field"><span class="label">Accent colour</span><div class="accents" role="group" aria-label="Accent colour">${accents}</div></div>
+    ${tpl.fonts.length > 1 ? `<div class="field"><span class="label">Heading font</span><div class="segmented wrap-seg" role="group" aria-label="Heading font">${fonts}</div></div>` : ''}
+    <div class="field" style="margin-bottom:0"><span class="label">Sections</span>
+      <ul class="sec-list">${secs}</ul>
+      <p class="hint">Your header (photo, name, headline, bio) always comes first.</p></div>
+  </section>`;
+}
+
+function setTheme(mutator) {
+  mutator(content.theme);
+  content.theme.sections = normaliseSections(content.theme.sections);
+  renderAll(); updatePreview(); scheduleSave();
+}
+
+function switchTemplate(tid) {
+  if (!TEMPLATES[tid] || content.theme.style === tid) return;
+  const prev = clone(content.theme);
+  content.theme = applyTemplate(content.theme, tid);
+  track('template_selected', { storeId: id, meta: { template: tid, where: 'editor' } });
+  renderAll(); updatePreview(true); scheduleSave();
+  toast(`Now using ${TEMPLATES[tid].name}. Your content is unchanged.`, { key: 'template', action: () => { content.theme = prev; renderAll(); updatePreview(); scheduleSave(); } });
+}
+
+function openTemplateGallery() {
+  openSheet((sheet, close) => {
+    sheet.classList.add('sheet-wide');
+    sheet.setAttribute('aria-label', 'Choose your storefront template');
+    sheet.innerHTML = `<div class="tpv-head"><div><h3>Choose Your Storefront Template</h3><p class="sub">Pick your style. Add your products. Launch your store. Previews use your own profile and products.</p></div>
+      <button type="button" class="btn btn-secondary" data-close>Close</button></div>${galleryHtml({ current: content.theme.style, prefix: 'eg' })}`;
+    sheet.querySelector('[data-close]').onclick = close;
+    mountGallery(sheet.querySelector('[data-gallery]'), {
+      onUse: (tid) => { close(); switchTemplate(tid); },
+      previewContent: (tid) => ({ ...content, theme: applyTemplate(content.theme, tid) }),
+      assetSrc: previewAsset,
+    });
+  });
+}
+
 function lookCard() {
-  const themes = Object.entries(THEMES).map(([k, label]) => `<button type="button" class="theme-opt" data-theme="${k}" aria-pressed="${content.theme.style === k}" style="--acc:${ACCENTS[content.theme.accent]}"><div class="theme-swatch swatch-${k}"></div>${e(label)}</button>`).join('');
-  const accents = Object.entries(ACCENTS).map(([k, hex]) => `<button type="button" class="accent-dot" data-accent="${k}" aria-pressed="${content.theme.accent === k}" style="background:${hex}" aria-label="${k} colour"></button>`).join('');
   const langs = Object.entries(LANGUAGES).map(([k, label]) => `<button type="button" data-lang="${k}" aria-pressed="${content.language === k}">${k === 'hi' ? 'हिंदी' : e(label)}</button>`).join('');
   return `<section class="card" id="sec-look">
-    <div class="card-head"><h2>Look &amp; language</h2></div>
-    <span class="label">Style</span>
-    <div class="themes">${themes}</div>
-    <div class="accents" role="group" aria-label="Accent colour">${accents}</div>
-    <div class="field" style="margin-top:18px;margin-bottom:0">
+    <div class="card-head"><h2>Language &amp; voice</h2></div>
+    <div class="field" style="margin-bottom:0">
       <span class="label">Language</span>
       <div class="segmented" style="margin-bottom:8px" role="group" aria-label="Language">${langs}</div>
     </div>
@@ -534,7 +599,7 @@ function startOverCard() {
 
 function renderAll() {
   const active = document.activeElement?.id;
-  app.innerHTML = publishedBar() + profileCard() + productsCard() + testimonialsCard() + linksCard() + lookCard() + startOverCard();
+  app.innerHTML = publishedBar() + templateCard() + profileCard() + productsCard() + testimonialsCard() + linksCard() + lookCard() + startOverCard();
   if (active) document.getElementById(active)?.focus();
   validateLocal();
 }
@@ -551,7 +616,7 @@ function validateLocal() {
     if (bad) problems.push(`Add your ${label}`);
   }
   const l = content.links || {};
-  for (const [k, fn, label] of [['whatsapp', (v) => cleanWhatsapp(v), 'WhatsApp number'], ['website', (v) => cleanUrl(v, 'Website link'), 'Website link']]) {
+  for (const [k, fn, label] of [['whatsapp', (v) => cleanWhatsapp(v), 'WhatsApp number'], ['website', (v) => cleanUrl(v, 'Website link'), 'Website link'], ['email', (v) => cleanEmail(v), 'email']]) {
     let bad = false;
     try { fn(l[k]); } catch (err) { bad = true; problems.push(err.message || `Check your ${label}`); }
     mark(document.querySelector(`[data-link="${k}"]`), bad);
@@ -719,6 +784,13 @@ app.addEventListener('input', (ev) => {
 });
 app.addEventListener('change', (ev) => {
   if (ev.target.matches('input[type=file][data-upload]')) { onPickImage(ev.target); return; }
+  if (ev.target.matches('input[data-sec-toggle]')) {
+    const key = ev.target.closest('[data-sec]').dataset.sec;
+    const show = ev.target.checked;
+    setTheme((th) => { th.sections.hidden = show ? th.sections.hidden.filter((k) => k !== key) : [...th.sections.hidden, key]; });
+    document.querySelector(`[data-sec="${key}"] input[data-sec-toggle]`)?.focus();
+    return;
+  }
   if (ev.target.matches('input[type=checkbox][data-tf], select[data-tf]')) { onTestimonialEdit(ev.target); return; }
   if (ev.target.matches('select[data-pf]')) onEdit(ev.target);
 });
@@ -922,6 +994,7 @@ document.addEventListener('click', (ev) => {
       case 'add-product': return addProduct();
       case 'regen-all': return regenAll();
       case 'gen-cover': return generateCover();
+      case 'browse-templates': return openTemplateGallery();
       case 't-add': case 't-delete': case 't-up': case 't-down': case 't-tidy': case 't-use': case 't-keep': return testimonialAction(action, t);
       case 'remove-cover': return removeImage('cover');
       case 'remove-avatar': return removeImage('avatar');
@@ -934,9 +1007,23 @@ document.addEventListener('click', (ev) => {
     }
   }
   const theme = t.closest('[data-theme]')?.dataset.theme;
-  if (theme) { content.theme.style = theme; renderAll(); updatePreview(); scheduleSave(); return undefined; }
+  if (theme) { switchTemplate(theme); return undefined; }
   const accent = t.closest('[data-accent]')?.dataset.accent;
-  if (accent) { content.theme.accent = accent; renderAll(); updatePreview(); scheduleSave(); return undefined; }
+  if (accent) { setTheme((th) => { th.accent = accent; }); return undefined; }
+  const bgId = t.closest('[data-bg]')?.dataset.bg;
+  if (bgId) { setTheme((th) => { th.background = bgId; }); return undefined; }
+  const font = t.closest('[data-font]')?.dataset.font;
+  if (font) { setTheme((th) => { th.font = font; }); return undefined; }
+  const move = t.closest('[data-sec-move]')?.dataset.secMove;
+  if (move) {
+    const key = t.closest('[data-sec]').dataset.sec;
+    setTheme((th) => {
+      const o = th.sections.order; const i = o.indexOf(key); const j = move === 'up' ? i - 1 : i + 1;
+      if (i >= 0 && j >= 0 && j < o.length) [o[i], o[j]] = [o[j], o[i]];
+    });
+    document.querySelector(`[data-sec="${key}"] [data-sec-move="${move}"]:not([disabled])`)?.focus();
+    return undefined;
+  }
   const lang = t.closest('#sec-look [data-lang]')?.dataset.lang;
   if (lang && lang !== content.language) {
     confirmSheet({ title: `Rewrite your store in ${LANGUAGES[lang]}?`, sub: 'Your bio and products will be rewritten by AI. Your name, look and contact links stay. You can undo right after.', confirmLabel: 'Rewrite store' }).then((yes) => {

@@ -165,10 +165,28 @@ async function cropToJpeg(src, w, h, quality) {
 }
 const SIZES = { avatar: [512, 512, 0.86], cover: [1600, 600, 0.82] };
 
+// The preview iframe is sandboxed (no same-origin), so it can't load /api/assets/…; hand it
+// data: URLs instead. Freshly uploaded images are cached straight away; older ones are fetched once.
+const assetCache = new Map();
+function previewAsset(assetId) {
+  if (!assetId) return '';
+  const hit = assetCache.get(assetId);
+  if (typeof hit === 'string') return hit;
+  if (!hit) {
+    assetCache.set(assetId, fetch(assetUrl(assetId)).then((r) => (r.ok ? r.blob() : null)).then((b) => b && new Promise((resolve) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.readAsDataURL(b);
+    })).then((url) => { if (url) { assetCache.set(assetId, url); updatePreview(true); } else assetCache.delete(assetId); }).catch(() => assetCache.delete(assetId)));
+  }
+  return '';
+}
+
 async function uploadImage(kind, src, source = 'upload') {
   const [w, h, q] = SIZES[kind];
   const data = await cropToJpeg(src, w, h, q);
   const res = await api(`/api/stores/${encodeURIComponent(id)}/assets`, { method: 'POST', key, timeoutMs: 30000, body: { kind, mime: 'image/jpeg', data, source } });
+  assetCache.set(res.id, `data:image/jpeg;base64,${data}`);
   return res.id;
 }
 
@@ -461,7 +479,7 @@ function updatePreview(now = false) {
       // Half-typed links shouldn't render as broken buttons in the preview.
       const safeUrl = (u) => { try { return cleanUrl(u); } catch { return ''; } };
       const view = { ...content, links: normaliseLinks(content.links, { strict: false }), products: content.products.map((p) => ({ ...p, buyUrl: safeUrl(p.buyUrl) })) };
-      html = renderStorefront(view, { handle: store.input?.handle || '', slug: store.slug || '', baseUrl: location.origin, mode: 'preview', published: store.status === 'published' });
+      html = renderStorefront(view, { handle: store.input?.handle || '', slug: store.slug || '', baseUrl: location.origin, assetSrc: previewAsset, mode: 'preview', published: store.status === 'published' });
     } catch { return; }
     for (const f of frames) {
       if (f.offsetParent === null && f.id === 'preview') continue; // desktop pane hidden on mobile

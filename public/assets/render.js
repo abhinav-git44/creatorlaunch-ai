@@ -226,10 +226,10 @@ function linksHtml(content, handle) {
   return out.length ? `<nav class="links" aria-label="Contact and social links">${out.join('')}</nav>` : '';
 }
 
-function heroHtml(content, handle, theme, baseUrl = '') {
+function heroHtml(content, handle, theme, src) {
   const c = content.creator;
-  const avatarSrc = assetUrl(c.avatar, baseUrl);
-  const coverSrc = assetUrl(c.cover, baseUrl);
+  const avatarSrc = src(c.avatar);
+  const coverSrc = src(c.cover);
   // Images are decorative here: the creator's name is the next thing on the page.
   const av = avatarSrc
     ? `<div class="avatar has-img"><img src="${e(avatarSrc)}" alt="" width="160" height="160" decoding="async"></div>`
@@ -257,7 +257,10 @@ function faviconSvg(letters, accent) {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-export function renderStorefront(content, { handle = '', slug = '', baseUrl = '', mode = 'public', published = false, year = new Date().getFullYear() } = {}) {
+// assetSrc: optional (id) => URL for the profile picture / cover. The editor's sandboxed preview
+// passes data: URLs because it can't load images from the site.
+export function renderStorefront(content, { handle = '', slug = '', baseUrl = '', mode = 'public', published = false, year = new Date().getFullYear(), assetSrc = null } = {}) {
+  const src = assetSrc || ((assetId) => assetUrl(assetId, baseUrl));
   const c = content.creator;
   const theme = content.theme?.style in THEME_CSS ? content.theme.style : 'minimal';
   const accent = ACCENTS[content.theme?.accent] || ACCENTS.indigo;
@@ -266,7 +269,7 @@ export function renderStorefront(content, { handle = '', slug = '', baseUrl = ''
   const title = `${c.displayName} · ${c.headline}`;
   const desc = String(c.bio || '').replace(/\s+/g, ' ').slice(0, 158);
   const products = content.products || [];
-  const coverAbs = baseUrl ? assetUrl(c.cover, baseUrl) : '';
+  const coverAbs = baseUrl && mode !== 'preview' ? assetUrl(c.cover, baseUrl) : '';
 
   // "Start here" marks the cheapest paid offer, a fact about price, never a popularity claim.
   let entryId = null;
@@ -309,7 +312,7 @@ ${mode === 'preview' ? '<meta name="robots" content="noindex">' : ''}
 </head>
 <body class="t-${theme}" data-mode="${mode === 'preview' ? 'preview' : 'public'}" data-slug="${e(slug)}" data-theme="${theme}">
 ${banner}
-${heroHtml(content, handle, theme, baseUrl)}
+${heroHtml(content, handle, theme, src)}
 <main class="wrap" id="offers">
   ${sectionTitle}
   <section class="products${products.length === 1 ? ' one' : products.length === 3 ? ' three' : ''}" aria-label="Products">${items}</section>

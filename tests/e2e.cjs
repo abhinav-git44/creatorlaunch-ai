@@ -320,6 +320,15 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
     await ig.setInputFiles('#cover-file', { name: 'cover.png', mimeType: 'image/png', buffer: screenshot });
     await ig.waitForSelector('.cover-box img');
     check(!(await ig.isVisible('.ai-badge')), 'uploaded cover replaces it, without the AI label');
+    await ig.click('#bottom-bar [data-action="preview"]');
+    const pf = await (await ig.waitForSelector('#preview-mobile')).contentFrame();
+    await pf.waitForSelector('.hero img');
+    await ig.waitForTimeout(800);
+    const pimgs = await pf.$$eval('.hero img', (els) => els.map((i) => i.complete && i.naturalWidth > 0));
+    check(pimgs.length === 2 && pimgs.every(Boolean), 'live preview (sandboxed) shows the cover and the profile picture');
+    await ig.keyboard.press('Escape');
+    await ig.click('.preview-overlay .preview-head button').catch(() => {});
+    await ig.waitForSelector('#preview-mobile', { state: 'detached' }).catch(() => {});
     await ig.waitForSelector('#save-status.ok', { timeout: 10000 }).catch(() => {});
     await ig.waitForTimeout(1500);
     await ig.reload();

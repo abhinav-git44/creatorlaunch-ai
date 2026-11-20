@@ -1,0 +1,33 @@
+# Run 1 · production https://creatorlaunch-ai1.vercel.app (commit 3e23a52, prompt v2) · 2026-11-20 UTC
+# id status score ms dims(niche/product/diversity/price/description/audience/safety/language) flags formats:prices
+fit-01 200 100 7018 100/100/100/100/100/100/100/100  ebook:299,recorded_course:999,one_on_one_call:1999
+fit-02 200 100 4527 100/100/100/100/100/100/100/100  ebook:299,template_pack:699,one_on_one_call:1499
+fit-03 200 100 3836 100/100/100/100/100/100/100/100  ebook:299,template_pack:999,recorded_course:1999
+fin-01 200 100 4924 100/100/100/100/100/100/100/100  ebook:299,recorded_course:1499,one_on_one_call:2499
+fin-02 200 100 4310 100/100/100/100/100/100/100/100  ebook:199,live_webinar:499,one_on_one_call:1499
+fin-03 200 100 3892 100/100/100/100/100/100/100/100  ebook:299,recorded_course:1499,community:499
+cook-01 200 100 4687 100/100/100/100/100/100/100/100  ebook:299,template_pack:499,live_webinar:999
+cook-02 200 100 4297 100/100/100/100/100/100/100/100  ebook:199,template_pack:299,live_webinar:499
+cook-03 200 100 3921 100/100/100/100/100/100/100/100  ebook:299,recorded_course:1499,live_webinar:499
+exam-01 200 100 5842 100/100/100/100/100/100/100/100  ebook:199,recorded_course:999,one_on_one_call:1499
+exam-02 200 100 5148 100/100/100/100/100/100/100/100  ebook:299,recorded_course:999,live_webinar:499
+exam-03 200 100 5939 100/100/100/100/100/100/100/100  ebook:299,live_webinar:999,one_on_one_call:1499
+fash-01 200 93.8 5311 100/100/100/100/100/50/100/100  ebook:299,template_pack:499,recorded_course:999
+fash-02 200 100 4554 100/100/100/100/100/100/100/100  ebook:299,recorded_course:999,one_on_one_call:1499
+beau-01 200 100 4566 100/100/100/100/100/100/100/100  ebook:299,recorded_course:1499,live_webinar:499
+beau-02 200 100 4119 100/100/100/100/100/100/100/100  ebook:299,live_webinar:499,one_on_one_call:1499
+astro-01 200 100 5609 100/100/100/100/100/100/100/100  ebook:199,recorded_course:999,one_on_one_call:1999
+astro-02 200 100 3721 100/100/100/100/100/100/100/100  ebook:299,live_webinar:999,one_on_one_call:2499
+des-01 200 100 5787 100/100/100/100/100/100/100/100  ebook:299,template_pack:699,one_on_one_call:1999
+des-02 200 100 5025 100/100/100/100/100/100/100/100  template_pack:299,recorded_course:999,live_webinar:499
+lang-01 200 100 4845 100/100/100/100/100/100/100/100  ebook:199,recorded_course:999,one_on_one_call:1499
+lang-02 200 100 3698 100/100/100/100/100/100/100/100  ebook:299,recorded_course:1499,one_on_one_call:999
+lang-03 200 100 4367 100/100/100/100/100/100/100/100  ebook:299,live_webinar:499,one_on_one_call:999
+car-01 200 100 3794 100/100/100/100/100/100/100/100  ebook:299,recorded_course:1499,one_on_one_call:1999
+car-02 200 100 3965 100/100/100/100/100/100/100/100  ebook:199,recorded_course:1499,one_on_one_call:999
+yoga-01 200 100 3584 100/100/100/100/100/100/100/100  ebook:299,recorded_course:1499,one_on_one_call:999
+yoga-02 200 100 4336 100/100/100/100/100/100/100/100  ebook:199,recorded_course:999,live_webinar:499
+biz-01 200 100 6725 100/100/100/100/100/100/100/100  ebook:299,template_pack:799,one_on_one_call:1499
+biz-02 504 timeout 54872
+vague-01 200 100 4706 100/100/100/100/100/100/100/100  ebook:199,one_on_one_call:999   # asked: "What specific topic or skill do you make videos about?"
+# Price-reason language (Hinglish/Hindi stores): fit-02 NNN, fin-02 NNN, exam-01 NNN, fash-02 NNN, astro-01 NNN (English), cook-02 YYY (Hindi)

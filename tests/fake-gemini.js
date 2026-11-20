@@ -64,6 +64,11 @@ export function startFakeGemini(port = 0) {
     if (prompt.includes('FAKE_429')) { res.writeHead(429); return res.end('{}'); }
     if (prompt.includes('FAKE_503_PRIMARY') && /gemini-3\.5-flash-lite/.test(req.url)) { res.writeHead(503); return res.end('{"error":{"message":"The model is overloaded."}}'); }
     if (prompt.includes('FAKE_503_ALL')) { res.writeHead(503); return res.end('{}'); }
+    // Primary overloaded once, fallback hangs, primary recovers: the real pattern seen in production logs.
+    if (prompt.includes('FAKE_503_SLOW_FALLBACK')) {
+      if (/gemini-3\.6-flash/.test(req.url)) { await new Promise((r) => setTimeout(r, 4000)); res.writeHead(504); return res.end('{}'); }
+      if (once('503slow')) { res.writeHead(503); return res.end('{}'); }
+    }
     if (prompt.includes('FAKE_500_ONCE') && once('500')) { res.writeHead(500); return res.end('{}'); }
     if (prompt.includes('FAKE_BADJSON_ONCE') && once('bad')) {
       res.writeHead(200, { 'content-type': 'application/json' });

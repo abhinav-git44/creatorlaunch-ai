@@ -161,6 +161,11 @@ test('when the primary model is overloaded (503) we fall back to the second mode
   assert.equal(r.status, 200, r.text);
 });
 
+test('primary overloaded + fallback hanging: we switch back to the primary and succeed', async () => {
+  const r = await call('/api/generate', { method: 'POST', body: { input: input({ description: 'I teach yoga to office workers FAKE_503_SLOW_FALLBACK' }) } });
+  assert.equal(r.status, 200, r.text);
+});
+
 test('if every model is overloaded, retries are exhausted and the creator gets a calm retry message', async () => {
   const r = await call('/api/generate', { method: 'POST', body: { input: input({ description: 'I teach yoga to office workers FAKE_503_ALL' }) } });
   assert.equal(r.status, 502);

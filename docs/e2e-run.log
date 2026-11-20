@@ -1,0 +1,60 @@
+1. Onboarding and input edge cases (phone 390×844)
+  ✓ empty input: field error shown, no AI call
+  ✓ gibberish: caught with an example of what to write
+  ✓ invalid Instagram username: caught
+  ✓ never implies Instagram data was retrieved
+  ✓ AI timeout: friendly retry state
+  ✓ input preserved after a failure
+  ✓ invalid AI JSON: friendly retry state
+2. Generate and validate the draft
+  ✓ editor opened with the private edit key in the URL fragment
+  ✓ creator bio generated
+  ✓ 2–4 products generated (3)
+  ✓ typical INR range shown next to each price
+3. Edit title, price, description
+  ✓ title, price and pitch edits autosaved
+  ✓ invalid (empty) price blocks saving with a clear reason
+4. Regenerate one product, verify isolation, undo
+  ✓ product 2 replaced
+  ✓ unrelated products unchanged (incl. my edited title)
+  ✓ my edited price survived the regeneration
+  ✓ undo restores the previous product
+  ✓ API failure on regenerate: content kept, message says so
+  ✓ content really unchanged after the failure
+  ✓ language switch asks for confirmation before rewriting
+  ✓ keyboard focus stays trapped inside the dialog
+  ✓ cancel leaves the language unchanged
+5. Buyer destinations, theme, preview
+  ✓ unsafe payment link is rejected before saving
+  ✓ WhatsApp number, payment link and theme saved
+  ✓ preview shows the chosen theme
+6. Publish, copy URL, open in an independent browser context
+  ✓ link suggested from the creator name
+  ✓ Copy link puts the public URL on the clipboard (http://localhost:3998/s/riya-sharma)
+  ✓ public page loads in a fresh context without the edit key
+  ✓ saved title and price appear publicly
+  ✓ published page uses the chosen theme
+  ✓ product 1 button opens the payment link
+  ✓ external links open safely (noopener)
+  ✓ product 2 button opens a WhatsApp enquiry
+  ✓ view and CTA click are tracked
+  ✓ no horizontal scroll on the public page
+7. Unpublish and republish
+  ✓ unpublished page is no longer public (404)
+  ✓ republished page works again at the same link
+  ✓ onboarding, submit and preview events sent
+8. Duplicate slug, XSS, missing/invalid edit key
+  ✓ XSS payload in the name is stripped
+  ✓ duplicate link: explained, with a free suggestion
+  ✓ suggested free link pre-filled
+  ✓ no injected markup on the public page
+  ✓ missing edit key: friendly explanation
+  ✓ invalid edit key: refused without revealing the store
+9. Themes and 7 viewports
+  ✓ minimal theme: no horizontal overflow at 360, 390, 430, 768, 1024, 1440, 1920
+  ✓ bold theme: no horizontal overflow at 360, 390, 430, 768, 1024, 1440, 1920
+  ✓ elegant theme: no horizontal overflow at 360, 390, 430, 768, 1024, 1440, 1920
+  ✓ create + editor screens: no horizontal overflow at all 7 viewports
+  ✓ no browser errors or unexpected dialogs
+
+All browser checks passed (49).

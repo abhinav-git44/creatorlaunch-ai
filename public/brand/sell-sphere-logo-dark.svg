@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="95 110 2000 490" role="img" aria-label="Sell Sphere – Create. Monetize. Grow.">
+<!-- Sell Sphere horizontal logo, dark backgrounds (primary). Traced from the approved logo reference (docs/brand/logo-reference.jpg). Do not redraw. -->
+  <defs>
+    <linearGradient id="ssBag" x1="230" y1="230" x2="600" y2="575" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFE08A"/><stop offset=".45" stop-color="#FFB301"/><stop offset="1" stop-color="#F29E00"/>
+    </linearGradient>
+    <radialGradient id="ssShade" cx="505" cy="360" r="190" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3A2404" stop-opacity=".85"/><stop offset=".55" stop-color="#6B4306" stop-opacity=".35"/><stop offset="1" stop-color="#6B4306" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ssGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFD25A"/><stop offset="1" stop-color="#FFB301"/>
+    </linearGradient>
+    <linearGradient id="ssRing" x1="110" y1="500" x2="690" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFC21F"/><stop offset=".5" stop-color="#FFD25A"/><stop offset="1" stop-color="#FFB301"/>
+    </linearGradient>
+    <linearGradient id="ssArrow" x1="215" y1="490" x2="510" y2="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFE7B0"/><stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <clipPath id="ssFront"><path d="M0 560.5 L800 237.3 L800 800 L0 800 Z"/></clipPath>
+  </defs>
+  <!-- orbit, back half (behind the bag) -->
+  <path d="M138.4 504.7 A266 94 -22 1 0 631.6 305.3 A266 94 -22 1 0 138.4 504.7 Z M153.2 491.8 A250 80 -22 1 0 616.8 304.3 A250 80 -22 1 0 153.2 491.8 Z" fill="url(#ssRing)" fill-rule="evenodd"/>
+  <!-- bag body -->
+  <path id="ssBody" d="M278 234 L518 229 Q552 228 557 262 L606 528 Q612 569 571 570 L237 573 Q196 573 200 535 L238 270 Q242 235 278 234 Z" fill="url(#ssBag)"/>
+  <path d="M278 234 L518 229 Q552 228 557 262 L606 528 Q612 569 571 570 L237 573 Q196 573 200 535 L238 270 Q242 235 278 234 Z" fill="url(#ssShade)"/>
+  <!-- handle -->
+  <path d="M338 266 V214 Q338 148 405 148 Q472 148 472 214 V262" fill="none" stroke="url(#ssGold)" stroke-width="28" stroke-linecap="round"/>
+  <!-- growth arrow -->
+  <path d="M215 488 Q338 448 410 364 L386 343 L510 300 L463 414 L440 391 Q352 470 215 490 Z" fill="url(#ssArrow)" stroke="url(#ssArrow)" stroke-width="6" stroke-linejoin="round"/>
+  <!-- orbit, front half -->
+  <path d="M138.4 504.7 A266 94 -22 1 0 631.6 305.3 A266 94 -22 1 0 138.4 504.7 Z M153.2 491.8 A250 80 -22 1 0 616.8 304.3 A250 80 -22 1 0 153.2 491.8 Z" fill="url(#ssRing)" fill-rule="evenodd" clip-path="url(#ssFront)"/>
+  <!-- sparkle -->
+  <path d="M605 142 Q611 179 648 185 Q611 191 605 228 Q599 191 562 185 Q599 179 605 142 Z" fill="url(#ssGold)"/>
+
+  <defs><linearGradient id="ssWord" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD25A"/><stop offset="1" stop-color="#FFB301"/></linearGradient></defs>
+  <path d="M735 215 V495" stroke="#FFB301" stroke-width="5" stroke-linecap="round" opacity=".8"/>
+  <text x="800" y="398" font-size="240" font-weight="700" font-family="'Space Grotesk','Poppins','Montserrat','Segoe UI',Arial,sans-serif" textLength="1265" lengthAdjust="spacing"><tspan fill="#F8FAFC">Sell </tspan><tspan fill="url(#ssWord)">Sphere</tspan></text>
+  <path d="M805 484 H905 M1965 484 H2065" stroke="#FFB301" stroke-width="5" stroke-linecap="round"/>
+  <text x="1435" y="502" font-size="62" font-weight="500" font-family="'Space Grotesk','Poppins','Montserrat','Segoe UI',Arial,sans-serif" fill="#F8FAFC" text-anchor="middle" textLength="960" lengthAdjust="spacing">Create. Monetize. Grow.</text>
+</svg>

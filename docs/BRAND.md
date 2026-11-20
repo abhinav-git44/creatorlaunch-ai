@@ -9,16 +9,20 @@
 
 ## Logo
 
-| Asset | File | Status |
+The approved logo (gold shopping bag, upward growth arrow, orbital ring, four-point sparkle, "Sell" + gold "Sphere" wordmark, tagline) is traced to SVG from the reference image in `docs/brand/logo-reference.jpg`. The traced paths are shared by every variant, so the mark is identical everywhere.
+
+| Asset | File | Use |
 |---|---|---|
-| Primary horizontal (icon + wordmark) | `public/brand/sell-sphere-logo.svg` | **Pending: waiting for the approved reference image** |
-| Dark-background variant (default in the app) | `public/brand/sell-sphere-logo-dark.svg` | Pending |
-| Icon only (bag + orbit) | `public/brand/sell-sphere-icon.svg` | Pending |
-| Favicon | `public/brand/favicon.svg` | **Temporary** gold "S" tile, to be replaced by the icon |
+| Horizontal logo, dark backgrounds (primary) | `public/brand/sell-sphere-logo-dark.svg` | Off-white "Sell", gold "Sphere", tagline with gold rules |
+| Horizontal logo, light backgrounds | `public/brand/sell-sphere-logo.svg` | Near-black "Sell", deeper gold "Sphere" so it reads on white |
+| Icon only (bag + orbit + sparkle) | `public/brand/sell-sphere-icon.svg` | App header, footer, error page, compact spaces |
+| Favicon | `public/brand/favicon.svg` | Icon on a tight square canvas |
+| iPhone home-screen icon | `public/brand/apple-touch-icon.png` (180×180) | Icon on the dark background |
+| Social share image | `public/brand/og-image.png` (1200×630) | `og:image` / `twitter:image` on the home page |
 
-Until the approved logo arrives, the header and footer show the **text wordmark** "Sell Sphere" in Space Grotesk 700. No emoji or invented mark stands in for the logo. Once supplied, the approved logo (gold shopping bag with an upward arrow, orbital ring, small sparkle, wordmark) replaces the `.logo-word` span with an `<img>` in three places: `public/index.html` (header and footer), `public/edit.html`, `public/admin.html`.
+**In the app**, the header and footer use the icon SVG plus a live HTML wordmark ("Sell" off-white, "Sphere" gold gradient) set in Space Grotesk 700, so the text stays crisp and matches the UI font. The standalone horizontal SVGs contain real text (font stack: Space Grotesk, Poppins, Montserrat, system sans); a design tool without those fonts will substitute one, so convert the text to outlines before sending the files to print.
 
-Logo rules: keep proportions, no stretching, no added glow, clear space at least the height of the bag's handle on every side, minimum height 24 px in the UI.
+Logo rules: keep proportions, never stretch or recolour the mark, no added glow (the reference's glow is dropped on purpose), clear space at least the height of the bag's handle on every side, minimum icon height 24 px.
 
 ## Colour tokens (`public/assets/app.css`, `:root`)
 
@@ -66,11 +70,10 @@ Card radius 18, modal 22, button and input 12, pills 999. Spacing on an 8 px gri
 
 - **Sell Sphere surfaces** (dark theme): home/create flow, generating, clarify and error states, editor, publish sheet, admin metrics, the "store not found" page.
 - **Creator storefronts** (`/s/:slug`) keep the creator's own theme (Minimal, Bold, Elegant) and accent colour. They carry a small "Made with Sell Sphere" footer link back to the home page, and nothing else from the dashboard theme.
+- **Logo placement:** header (all app pages), home footer, "store not found" page, favicon, home-screen icon, social share image.
 - **Not applicable:** there are no login, signup, password-reset, dashboard or email screens in this product (no accounts by design; see the decision doc §4), so none were invented for the rebrand.
 
 ## Follow-ups
 
-1. Add the approved logo files and swap the wordmark for the logo `<img>` (above).
-2. Self-host Space Grotesk (woff2, latin + latin-ext) to drop the Google Fonts request and tighten the CSP back to `'self'`.
-3. Add an `og:image` (1200×630) once the logo exists.
-4. Point the **Watch demo** button at the Loom: set its `href` in `public/index.html` and remove the two `hidden` attributes.
+1. Self-host Space Grotesk (woff2, latin + latin-ext) to drop the Google Fonts request and tighten the CSP back to `'self'`.
+2. Point the **Watch demo** button at the Loom: set its `href` in `public/index.html` and remove the two `hidden` attributes.

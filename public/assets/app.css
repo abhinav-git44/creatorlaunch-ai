@@ -360,3 +360,12 @@ footer.site.compact { margin-top: 24px; padding: 20px 16px 40px; text-align: cen
 }
 @media (max-width: 1039px) { .hero .ticks, .hero .wide-only { display: none; } .hero { padding: 12px 4px 20px; } }
 body:has(.sheet-backdrop) .toasts { bottom: auto; top: 16px; }
+
+/* ---------- logo (icon from public/brand + live wordmark in Space Grotesk) */
+.logo img { height: 30px; width: auto; flex: none; }
+.logo-word { font-weight: 700; letter-spacing: -.015em; }
+.logo-word b { font-weight: 700; background: linear-gradient(180deg, #FFD25A, var(--brand-gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+footer.site .logo img { height: 36px; }
+footer.site .logo { font-size: 20px; }
+.topbar .logo img { height: 34px; }
+.topbar .logo { font-size: 18px; }

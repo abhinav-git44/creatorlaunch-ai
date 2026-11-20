@@ -16,6 +16,18 @@
       "destination": "/api/publish?id=:id"
     },
     {
+      "source": "/api/stores/:id/assets",
+      "destination": "/api/assets?store=:id"
+    },
+    {
+      "source": "/api/stores/:id/cover",
+      "destination": "/api/cover?id=:id"
+    },
+    {
+      "source": "/api/assets/:id",
+      "destination": "/api/assets?id=:id"
+    },
+    {
       "source": "/api/stores/:id",
       "destination": "/api/store?id=:id"
     }
@@ -29,6 +41,9 @@
     },
     "api/metrics.js": {
       "maxDuration": 30
+    },
+    "api/cover.js": {
+      "maxDuration": 60
     }
   },
   "headers": [

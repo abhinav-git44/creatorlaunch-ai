@@ -1,5 +1,5 @@
 import { api, ApiError, toast, openSheet, askInstruction, confirmSheet, saveEditKey, getEditKey, copyText } from './ui.js';
-import { FORMATS, THEMES, ACCENTS, LANGUAGES, TONES, LIMITS, MAX_PRICE, escapeHtml as e, formatInr, typicalRange, cleanUrl, cleanWhatsapp, normaliseLinks } from './shared.js';
+import { FORMATS, THEMES, ACCENTS, LANGUAGES, TONES, LIMITS, MAX_PRICE, escapeHtml as e, formatInr, typicalRange, cleanUrl, cleanWhatsapp, normaliseLinks, assetUrl } from './shared.js';
 import { track, setEditKey } from './analytics.js';
 import { renderStorefront } from './render.js';
 
@@ -85,6 +85,154 @@ function fieldInput(path, label, value, { max, multiline = false, rows = 3, hint
   return `<div class="field"><label for="${idAttr}">${label}</label>${control}${hint ? `<div class="hint">${hint}</div>` : ''}</div>`;
 }
 
+// ---------------------------------------------------------------- profile picture + cover
+
+const ICON_SPARK = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9z"/><path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z"/></svg>';
+
+function initialsOf(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '★';
+}
+
+function imagesBlock() {
+  const c = content.creator;
+  const cover = assetUrl(c.cover);
+  const avatar = assetUrl(c.avatar);
+  const drawing = busy.has('cover');
+  const uploading = (k) => busy.has(`up-${k}`);
+  return `<div class="media">
+    <div class="field" id="f-cover">
+      <span class="label">Cover image <span class="optional">(optional)</span></span>
+      <div class="cover-box${drawing ? ' drawing' : ''}">
+        ${cover ? `<img src="${e(cover)}" alt="Your cover image">` : ''}
+        ${drawing ? '<div class="cover-state"><span class="spin"></span>Drawing a cover from what you do… about 15 seconds</div>'
+          : !cover ? '<div class="cover-state">No cover yet. Upload one, or let AI draw one for you.</div>' : ''}
+        ${cover && c.coverAi ? '<span class="ai-badge">AI-generated</span>' : ''}
+      </div>
+      <div class="media-actions">
+        <label class="btn btn-secondary" for="cover-file" ${drawing || uploading('cover') ? 'aria-disabled="true"' : ''}>${uploading('cover') ? '<span class="spin"></span>Uploading…' : cover ? 'Replace' : 'Upload cover'}</label>
+        <input type="file" id="cover-file" class="sr-only" accept="image/jpeg,image/png,image/webp" data-upload="cover" ${drawing ? 'disabled' : ''}>
+        <button type="button" class="btn btn-secondary" data-action="gen-cover" ${drawing || uploading('cover') ? 'disabled' : ''}>${ICON_SPARK}${cover && c.coverAi ? 'Draw another' : 'Generate with AI'}</button>
+        ${cover && !drawing ? '<button type="button" class="btn btn-ghost" data-action="remove-cover">Remove</button>' : ''}
+      </div>
+      <p class="hint">A wide image (about 3:1) works best. No image? AI can draw one from your name and what you told us you do and who you help.</p>
+    </div>
+    <div class="field" id="f-avatar">
+      <span class="label">Profile picture <span class="optional">(optional)</span></span>
+      <div class="avatar-edit">
+        <div class="avatar-box">${avatar ? `<img src="${e(avatar)}" alt="Your profile picture">` : `<span aria-hidden="true">${e(initialsOf(c.displayName))}</span>`}</div>
+        <div class="media-actions">
+          <label class="btn btn-secondary" for="avatar-file">${uploading('avatar') ? '<span class="spin"></span>Uploading…' : avatar ? 'Change photo' : 'Upload photo'}</label>
+          <input type="file" id="avatar-file" class="sr-only" accept="image/jpeg,image/png,image/webp" data-upload="avatar">
+          ${avatar ? '<button type="button" class="btn btn-ghost" data-action="remove-avatar">Remove</button>' : ''}
+        </div>
+      </div>
+      <p class="hint">${avatar ? 'Shown in a circle at the top of your store.' : 'Without a photo, your store shows your initials.'} Use a photo you own.</p>
+    </div>
+  </div>`;
+}
+
+// Read an image (File or data URL), centre-crop it to w×h and return JPEG base64. Runs in the
+// browser so uploads stay small (avatar ~40 KB, cover ~150 KB) and EXIF location data is dropped.
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('unreadable'));
+    img.src = src;
+  });
+}
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(new Error('unreadable'));
+    r.readAsDataURL(file);
+  });
+}
+async function cropToJpeg(src, w, h, quality) {
+  const img = await loadImage(src);
+  const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+  const sw = w / scale; const sh = h / scale;
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const g = canvas.getContext('2d');
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, w, h);
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', quality).split(',')[1];
+}
+const SIZES = { avatar: [512, 512, 0.86], cover: [1600, 600, 0.82] };
+
+async function uploadImage(kind, src, source = 'upload') {
+  const [w, h, q] = SIZES[kind];
+  const data = await cropToJpeg(src, w, h, q);
+  const res = await api(`/api/stores/${encodeURIComponent(id)}/assets`, { method: 'POST', key, timeoutMs: 30000, body: { kind, mime: 'image/jpeg', data, source } });
+  return res.id;
+}
+
+function setImage(kind, assetId, { ai = false } = {}) {
+  if (assetId) content.creator[kind] = assetId;
+  else delete content.creator[kind];
+  if (kind === 'cover') { if (assetId && ai) content.creator.coverAi = true; else delete content.creator.coverAi; }
+  renderAll(); updatePreview(); scheduleSave();
+}
+function snapshotImages() {
+  const { avatar, cover, coverAi } = content.creator;
+  return { avatar, cover, coverAi };
+}
+function restoreImages(prev) {
+  for (const k of ['avatar', 'cover', 'coverAi']) { if (prev[k]) content.creator[k] = prev[k]; else delete content.creator[k]; }
+  renderAll(); updatePreview(); scheduleSave();
+}
+
+async function onPickImage(input) {
+  const kind = input.dataset.upload;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { toast('Use a JPG, PNG or WebP image.', { type: 'error' }); return; }
+  if (file.size > 15 * 1024 * 1024) { toast('That image is over 15 MB. Try a smaller one.', { type: 'error' }); return; }
+  const section = `up-${kind}`;
+  if (busy.has(section)) return;
+  busy.add(section); renderAll();
+  const prev = snapshotImages();
+  try {
+    const assetId = await uploadImage(kind, await fileToDataUrl(file));
+    busy.delete(section);
+    setImage(kind, assetId);
+    toast(kind === 'cover' ? 'Cover image added.' : 'Profile picture added.', { action: prev[kind] ? () => restoreImages(prev) : undefined });
+  } catch (err) {
+    busy.delete(section); renderAll();
+    toast(err instanceof ApiError ? err.message : 'We couldn\'t read that image. Try another one.', { type: 'error' });
+  }
+}
+
+async function generateCover() {
+  if (busy.has('cover')) return;
+  const prev = snapshotImages();
+  await withBusy('cover', async () => {
+    const res = await api(`/api/stores/${encodeURIComponent(id)}/cover`, { method: 'POST', key, timeoutMs: 70000, body: { content: validateLocal().length ? undefined : content } });
+    const assetId = await uploadImage('cover', `data:${res.image.mime};base64,${res.image.data}`, 'ai');
+    content.creator.cover = assetId;
+    content.creator.coverAi = true;
+    toast(prev.cover ? 'New cover drawn.' : 'Cover drawn by AI. Keep it, draw another, or upload your own.', { action: () => restoreImages(prev) });
+  });
+}
+
+function snapshotImagesOf(c) {
+  const out = {};
+  for (const k of ['avatar', 'cover', 'coverAi']) if (c.creator[k]) out[k] = c.creator[k];
+  return out;
+}
+
+function removeImage(kind) {
+  const prev = snapshotImages();
+  setImage(kind, '');
+  toast(kind === 'cover' ? 'Cover removed.' : 'Profile picture removed.', { action: () => restoreImages(prev) });
+}
+
 function profileCard() {
   const c = content.creator;
   return `<section class="card" id="sec-bio" ${busy.has('bio') ? 'aria-busy="true"' : ''}>
@@ -92,6 +240,7 @@ function profileCard() {
       <button type="button" class="btn btn-ghost" data-action="regen-bio" ${busy.has('bio') ? 'disabled' : ''}>${busy.has('bio') ? '<span class="spin"></span>Rewriting…' : '↻ Rewrite with AI'}</button>
     </div>
     ${store.input?.profileNotes ? `<div class="profile-read"><b>Built from your Instagram screenshots${store.input.handle ? ` (@${e(store.input.handle)})` : ''}</b>${e(store.input.profileNotes)}</div>` : ''}
+    ${imagesBlock()}
     ${fieldInput('creator.displayName', 'Name on your store', c.displayName, { max: LIMITS.displayName })}
     ${fieldInput('creator.headline', 'Headline', c.headline, { max: LIMITS.headline, hint: 'One line on what you help people do.' })}
     ${fieldInput('creator.bio', 'Bio', c.bio, { max: LIMITS.bio, multiline: true, rows: 4 })}
@@ -367,6 +516,7 @@ app.addEventListener('input', (ev) => {
   if (ev.target.matches('[data-bind],[data-pf],[data-link]')) onEdit(ev.target);
 });
 app.addEventListener('change', (ev) => {
+  if (ev.target.matches('input[type=file][data-upload]')) { onPickImage(ev.target); return; }
   if (ev.target.matches('select[data-pf]')) onEdit(ev.target);
 });
 
@@ -406,7 +556,8 @@ async function regenBio() {
   await withBusy('bio', async () => {
     const res = await regenerate('bio', { target: 'bio', instruction });
     const prev = { headline: content.creator.headline, bio: content.creator.bio };
-    Object.assign(content.creator, res.creator);
+    const { avatar: _a, cover: _c, coverAi: _ai, ...written } = res.creator;
+    Object.assign(content.creator, written);
     toast('New headline and bio written.', { action: () => { Object.assign(content.creator, prev); renderAll(); updatePreview(); scheduleSave(); } });
   });
 }
@@ -466,7 +617,7 @@ async function regenAll({ language, tone, ask = true } = {}) {
     const res = await regenerate('all', { target: 'all', instruction, language: language || content.language, tone: tone || content.tone });
     const prev = clone(content);
     // Keep the creator's chosen name, look and contact links; replace the AI-written parts.
-    content = { ...res.content, creator: { ...res.content.creator, displayName: content.creator.displayName }, theme: content.theme, links: content.links };
+    content = { ...res.content, creator: { ...res.content.creator, displayName: content.creator.displayName, ...snapshotImagesOf(content) }, theme: content.theme, links: content.links };
     toast(language ? `Store rewritten in ${LANGUAGES[language]}.` : tone ? `Store rewritten in a ${TONES[tone].toLowerCase()} voice.` : 'Fresh store generated.', { action: () => { content = prev; renderAll(); updatePreview(); scheduleSave(); } });
   });
 }
@@ -567,6 +718,9 @@ document.addEventListener('click', (ev) => {
       case 'delete-product': return deleteProduct(pid);
       case 'add-product': return addProduct();
       case 'regen-all': return regenAll();
+      case 'gen-cover': return generateCover();
+      case 'remove-cover': return removeImage('cover');
+      case 'remove-avatar': return removeImage('avatar');
       case 'publish': return publishSheet();
       case 'unpublish': return unpublish();
       case 'preview': return content && openMobilePreview();

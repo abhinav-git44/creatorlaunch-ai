@@ -305,6 +305,53 @@ const waitSaved = (page) => page.waitForFunction(() => document.querySelector('#
     check((await ig.textContent('.profile-read')).includes('@riya.fit'), 'editor shows what was read from the screenshots (username taken from the image)');
     await shot(ig, 'after-12-editor-from-screenshots-phone');
 
+    // ------------------------------------------------------------ 11. Profile picture + cover image
+    console.log('11. Profile picture and cover image');
+    await ig.setInputFiles('#avatar-file', { name: 'me.png', mimeType: 'image/png', buffer: screenshot });
+    await ig.waitForSelector('.avatar-box img');
+    check(await ig.isVisible('[data-action="remove-avatar"]'), 'profile picture uploaded (cropped in the browser) and shown in the editor');
+    await ig.waitForSelector('.toast >> text=Profile picture added');
+    await ig.click('[data-action="gen-cover"]');
+    await ig.waitForSelector('.cover-box img', { timeout: 20000 });
+    check(await ig.isVisible('.ai-badge'), 'AI cover drawn from the description and labelled "AI-generated"');
+    await ig.click('.toast >> text=Undo');
+    await ig.waitForSelector('.cover-box img', { state: 'detached' });
+    check(true, 'undo removes the AI cover');
+    await ig.setInputFiles('#cover-file', { name: 'cover.png', mimeType: 'image/png', buffer: screenshot });
+    await ig.waitForSelector('.cover-box img');
+    check(!(await ig.isVisible('.ai-badge')), 'uploaded cover replaces it, without the AI label');
+    await ig.waitForSelector('#save-status.ok', { timeout: 10000 }).catch(() => {});
+    await ig.waitForTimeout(1500);
+    await ig.reload();
+    await ig.waitForSelector('.cover-box img');
+    check(await ig.isVisible('.avatar-box img'), 'images persist after reload');
+    await ig.setInputFiles('#cover-file', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
+    await ig.waitForSelector('.toast.error >> text=JPG, PNG or WebP');
+    check(true, 'non-image file refused with a plain message');
+    await ig.click('#bottom-bar [data-action="publish"]');
+    await ig.waitForSelector('.sheet');
+    await ig.fill('.sheet input', `pics-${Date.now().toString(36)}`);
+    await ig.click('.sheet >> text=Publish now');
+    await ig.waitForSelector('text=Your store is live!');
+    const liveUrl = await ig.getAttribute('.sheet a[href*="/s/"]', 'href');
+    const pub = await phone.newPage();
+    watch(pub);
+    await pub.goto(liveUrl);
+    const imgs = await pub.$$eval('.hero img', (els) => els.map((i) => i.complete && i.naturalWidth > 0));
+    check(imgs.length === 2 && imgs.every(Boolean), 'public storefront shows the cover and the profile picture');
+    await ig.click('.sheet >> text=Keep editing');
+    await ig.waitForSelector('.sheet', { state: 'detached' });
+    for (const theme of ['bold', 'elegant']) {
+      await ig.click(`[data-theme="${theme}"]`);
+      await ig.waitForTimeout(2200); // autosave
+      await pub.goto(liveUrl);
+      const ok = await pub.$$eval('.hero img', (els) => els.length === 2 && els.every((i) => i.complete && i.naturalWidth > 0));
+      const noOverflow = await pub.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+      check(ok && noOverflow, `${theme} theme shows both images with no horizontal overflow`);
+      await shot(pub, `after-13-storefront-images-${theme}-phone`, true);
+    }
+    await pub.close();
+
     check(errors.length === 0, `no browser errors or unexpected dialogs${errors.length ? ': ' + errors.join(' | ') : ''}`);
     console.log(`\nAll browser checks passed (${passed}).`);
   } catch (err) {

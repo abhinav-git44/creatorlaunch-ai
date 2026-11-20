@@ -284,14 +284,25 @@ export function normaliseLinks(l, { strict = true } = {}) {
 
 const normTitle = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9\u0900-\u097f]+/g, ' ').trim();
 
+// Profile picture and cover image are stored separately (store_assets) and referenced by id.
+// Ids are content hashes, so anything that isn't exactly 40 lowercase hex chars is dropped.
+export const ASSET_ID_RE = /^[a-f0-9]{40}$/;
+export const cleanAssetId = (v) => (typeof v === 'string' && ASSET_ID_RE.test(v) ? v : '');
+export const assetUrl = (id, baseUrl = '') => (ASSET_ID_RE.test(String(id || '')) ? `${baseUrl}/api/assets/${id}` : '');
+
 export function normaliseCreator(c) {
   if (!c || typeof c !== 'object') throw new ValidationError('Creator missing');
-  return {
+  const out = {
     displayName: requireText(c, 'displayName', LIMITS.displayName),
     headline: requireText(c, 'headline', LIMITS.headline),
     bio: requireText(c, 'bio', LIMITS.bio, { multiline: true }),
     niche: cleanText(c.niche, LIMITS.niche),
   };
+  const avatar = cleanAssetId(c.avatar);
+  const cover = cleanAssetId(c.cover);
+  if (avatar) out.avatar = avatar;
+  if (cover) { out.cover = cover; if (c.coverAi === true) out.coverAi = true; }
+  return out;
 }
 
 export function normaliseTheme(t) {

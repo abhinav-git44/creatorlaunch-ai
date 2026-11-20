@@ -4,7 +4,7 @@
 //   minimal  – centred profile, clean card grid, price top-right
 //   bold     – full-bleed colour hero, sticker prices, offset-shadow cards, "Start here" entry offer
 //   elegant  – editorial: serif, hairline rules, numbered offers instead of boxes
-import { escapeHtml as e, formatInr, FORMATS, ACCENTS, whatsappLink } from './shared.js';
+import { escapeHtml as e, formatInr, FORMATS, ACCENTS, whatsappLink, assetUrl } from './shared.js';
 
 function initials(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
@@ -32,7 +32,12 @@ body{min-height:100vh;line-height:1.55;font-size:16px;font-family:var(--sans);-w
 a{color:inherit}
 img,svg{display:block}
 .wrap{max-width:var(--maxw,560px);margin:0 auto;padding:0 18px}
-.avatar{display:inline-flex;align-items:center;justify-content:center;font-weight:700;flex:none}
+.avatar{display:inline-flex;align-items:center;justify-content:center;font-weight:700;flex:none;overflow:hidden;position:relative;z-index:1}
+.avatar.has-img img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.cover{position:relative;width:100%;aspect-ratio:8/3;min-height:150px;max-height:340px;overflow:hidden;background:var(--accent-soft)}
+.cover img{width:100%;height:100%;object-fit:cover}
+.hero.has-cover{padding-top:0}
+.hero.has-cover .wrap{position:relative;z-index:1}
 .links{display:flex;flex-wrap:wrap;gap:8px}
 .links a{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:0 14px;border-radius:999px;font-size:14px;font-weight:600;text-decoration:none}
 .links svg{width:17px;height:17px}
@@ -94,6 +99,7 @@ h1{font-size:clamp(25px,6vw,36px);line-height:1.18;letter-spacing:-.02em;font-we
 footer{color:#5C5F6A}
 @media (min-width:760px){.products{grid-template-columns:repeat(2,1fr)}.products.one{grid-template-columns:minmax(0,520px);justify-content:center}}
 @media (min-width:1100px){.products.three{grid-template-columns:repeat(3,1fr)}}
+.hero.has-cover{padding-top:0}.hero.has-cover .avatar{margin-top:-42px}
 `,
   bold: `
 body{background:#FFFBF5;color:#111}
@@ -124,6 +130,7 @@ h1{font-size:clamp(32px,9vw,54px);line-height:1.02;letter-spacing:-.035em;font-w
 footer{color:#333}
 @media (min-width:760px){.products{grid-template-columns:repeat(2,1fr);gap:24px}.hero{padding:56px 0 84px}}
 @media (min-width:1100px){.products.three{grid-template-columns:repeat(3,1fr)}}
+.hero.has-cover{padding-top:0}.hero.has-cover:after{display:none}.hero.has-cover .cover{border-bottom:3px solid #111}.hero.has-cover .id{margin-top:-29px}.hero.has-cover .id>div{margin-top:29px}
 `,
   elegant: `
 body{background:#F6F1E9;color:#2A2420}
@@ -154,6 +161,7 @@ h1{font-size:clamp(28px,7vw,40px);line-height:1.2;font-weight:400;letter-spacing
 .cta:hover{background:var(--accent);color:#fff}
 .badge{background:transparent;color:var(--accent);border:1px solid var(--accent);font-size:10px;letter-spacing:.18em;margin-bottom:8px}
 footer{color:#8C7B68}
+.hero.has-cover{padding-top:0}.hero.has-cover .avatar{margin-top:-46px;background:#F6F1E9;box-shadow:0 0 0 5px #F6F1E9}.hero.has-cover .cover{max-height:300px}
 `,
 };
 
@@ -218,21 +226,28 @@ function linksHtml(content, handle) {
   return out.length ? `<nav class="links" aria-label="Contact and social links">${out.join('')}</nav>` : '';
 }
 
-function heroHtml(content, handle, theme) {
+function heroHtml(content, handle, theme, baseUrl = '') {
   const c = content.creator;
-  const av = `<div class="avatar" aria-hidden="true">${e(initials(c.displayName))}</div>`;
+  const avatarSrc = assetUrl(c.avatar, baseUrl);
+  const coverSrc = assetUrl(c.cover, baseUrl);
+  // Images are decorative here: the creator's name is the next thing on the page.
+  const av = avatarSrc
+    ? `<div class="avatar has-img"><img src="${e(avatarSrc)}" alt="" width="160" height="160" decoding="async"></div>`
+    : `<div class="avatar" aria-hidden="true">${e(initials(c.displayName))}</div>`;
+  const cover = coverSrc ? `<div class="cover"><img src="${e(coverSrc)}" alt="" width="1600" height="600" decoding="async" fetchpriority="high"></div>` : '';
+  const cls = `hero${coverSrc ? ' has-cover' : ''}`;
   const links = linksHtml(content, handle);
   if (theme === 'bold') {
-    return `<header class="hero"><div class="wrap">
+    return `<header class="${cls}">${cover}<div class="wrap">
       <div class="id">${av}<div><p class="name">${e(c.displayName)}</p>${c.niche ? `<span class="niche">${e(c.niche)}</span>` : ''}</div></div>
       <h1>${e(c.headline)}</h1><p class="bio">${e(c.bio)}</p>${links}</div></header>`;
   }
   if (theme === 'elegant') {
-    return `<header class="hero"><div class="wrap">${av}<p class="name">${e(c.displayName)}</p>
+    return `<header class="${cls}">${cover}<div class="wrap">${av}<p class="name">${e(c.displayName)}</p>
       ${c.niche ? `<span class="niche">${e(c.niche)}</span>` : ''}<div class="rule"></div>
       <h1>${e(c.headline)}</h1><p class="bio">${e(c.bio)}</p>${links}</div></header>`;
   }
-  return `<header class="hero"><div class="wrap">${av}<p class="name">${e(c.displayName)}</p>
+  return `<header class="${cls}">${cover}<div class="wrap">${av}<p class="name">${e(c.displayName)}</p>
     ${c.niche ? `<span class="niche">${e(c.niche)}</span>` : ''}
     <h1>${e(c.headline)}</h1><p class="bio">${e(c.bio)}</p>${links}</div></header>`;
 }
@@ -251,6 +266,7 @@ export function renderStorefront(content, { handle = '', slug = '', baseUrl = ''
   const title = `${c.displayName} · ${c.headline}`;
   const desc = String(c.bio || '').replace(/\s+/g, ' ').slice(0, 158);
   const products = content.products || [];
+  const coverAbs = baseUrl ? assetUrl(c.cover, baseUrl) : '';
 
   // "Start here" marks the cheapest paid offer, a fact about price, never a popularity claim.
   let entryId = null;
@@ -284,7 +300,7 @@ ${url ? `<link rel="canonical" href="${e(url)}">` : ''}
 <meta property="og:description" content="${e(desc)}">
 ${url ? `<meta property="og:url" content="${e(url)}">` : ''}
 <meta property="og:locale" content="${lang === 'hi' ? 'hi_IN' : 'en_IN'}">
-<meta name="twitter:card" content="summary">
+${coverAbs ? `<meta property="og:image" content="${e(coverAbs)}">\n<meta property="og:image:width" content="1600">\n<meta property="og:image:height" content="600">\n<meta name="twitter:card" content="summary_large_image">\n<meta name="twitter:image" content="${e(coverAbs)}">` : '<meta name="twitter:card" content="summary">'}
 <meta name="twitter:title" content="${e(title)}">
 <meta name="twitter:description" content="${e(desc)}">
 <meta name="theme-color" content="${theme === 'bold' ? accent : theme === 'elegant' ? '#F6F1E9' : '#F6F7F9'}">
@@ -293,7 +309,7 @@ ${mode === 'preview' ? '<meta name="robots" content="noindex">' : ''}
 </head>
 <body class="t-${theme}" data-mode="${mode === 'preview' ? 'preview' : 'public'}" data-slug="${e(slug)}" data-theme="${theme}">
 ${banner}
-${heroHtml(content, handle, theme)}
+${heroHtml(content, handle, theme, baseUrl)}
 <main class="wrap" id="offers">
   ${sectionTitle}
   <section class="products${products.length === 1 ? ' one' : products.length === 3 ? ' three' : ''}" aria-label="Products">${items}</section>

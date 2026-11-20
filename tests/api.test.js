@@ -535,3 +535,91 @@ test('clients cannot inject their own "profile notes" to skip the description', 
   assert.equal(r.status, 422);
   assert.ok(r.json.error.fields.description);
 });
+
+// ------------------------------------------------------------------ profile picture + cover image
+
+// A real (tiny) JPEG: FF D8 FF header + padding, enough to pass magic-byte and size checks.
+const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(400, 7), Buffer.from([0xff, 0xd9])]).toString('base64');
+
+test('upload a profile picture and cover: stored, served immutable, kept on save, shown on the public page', async () => {
+  const { id, editKey, content } = await makeStore();
+  const up = await call(`/api/stores/${id}/assets`, { method: 'POST', key: editKey, body: { kind: 'avatar', mime: 'image/jpeg', data: JPEG } });
+  assert.equal(up.status, 201, up.text);
+  assert.match(up.json.id, /^[a-f0-9]{40}$/);
+  const cov = await call(`/api/stores/${id}/assets`, { method: 'POST', key: editKey, body: { kind: 'cover', mime: 'image/jpeg', data: JPEG, source: 'ai' } });
+  assert.equal(cov.status, 201);
+  const again = await call(`/api/stores/${id}/assets`, { method: 'POST', key: editKey, body: { kind: 'avatar', mime: 'image/jpeg', data: JPEG } });
+  assert.equal(again.json.id, up.json.id, 'same image, same store: same id (no duplicate rows)');
+
+  const img = await fetch(`${BASE}/api/assets/${up.json.id}`);
+  assert.equal(img.status, 200);
+  assert.equal(img.headers.get('content-type'), 'image/jpeg');
+  assert.match(img.headers.get('cache-control'), /immutable/);
+  assert.equal(img.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(Buffer.from(await img.arrayBuffer()).toString('base64'), JPEG);
+
+  const withImgs = { ...content, creator: { ...content.creator, avatar: up.json.id, cover: cov.json.id, coverAi: true } };
+  const p = await call(`/api/stores/${id}`, { method: 'PATCH', key: editKey, body: { content: withImgs } });
+  assert.equal(p.status, 200, p.text);
+  assert.equal(p.json.content.creator.avatar, up.json.id);
+  assert.equal(p.json.content.creator.coverAi, true);
+
+  const pub = await call(`/api/stores/${id}/publish`, { method: 'POST', key: editKey, body: { slug: `img-${Date.now().toString(36)}` } });
+  assert.equal(pub.status, 200, pub.text);
+  const page = await call(`/s/${pub.json.slug}`);
+  assert.equal(page.status, 200);
+  assert.ok(page.text.includes(`/api/assets/${up.json.id}`), 'avatar on the page');
+  assert.ok(page.text.includes(`/api/assets/${cov.json.id}`), 'cover on the page');
+  assert.match(page.text, /og:image" content="http[^"]+\/api\/assets\//, 'cover becomes the share image');
+});
+
+test('image ids that are not ours are dropped on save; bad uploads are refused', async () => {
+  const { id, editKey, content } = await makeStore();
+  const bad = { ...content, creator: { ...content.creator, avatar: '../../etc/passwd', cover: 'javascript:alert(1)' } };
+  const p = await call(`/api/stores/${id}`, { method: 'PATCH', key: editKey, body: { content: bad } });
+  assert.equal(p.status, 200);
+  assert.equal(p.json.content.creator.avatar, undefined);
+  assert.equal(p.json.content.creator.cover, undefined);
+
+  const post = (body, key = editKey) => call(`/api/stores/${id}/assets`, { method: 'POST', key, body });
+  assert.equal((await post({ kind: 'avatar', mime: 'image/jpeg', data: JPEG }, 'wrong-key')).status, 404, 'needs the edit key');
+  assert.equal((await post({ kind: 'banner', mime: 'image/jpeg', data: JPEG })).status, 422, 'unknown kind');
+  assert.equal((await post({ kind: 'avatar', mime: 'image/svg+xml', data: Buffer.from('<svg onload=alert(1)>').toString('base64') })).status, 422, 'no SVG');
+  assert.equal((await post({ kind: 'avatar', mime: 'image/png', data: JPEG })).status, 422, 'bytes must match the type');
+  const huge = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(420 * 1024)]).toString('base64');
+  assert.equal((await post({ kind: 'avatar', mime: 'image/jpeg', data: huge })).status, 413, 'avatar size cap');
+  assert.equal((await fetch(`${BASE}/api/assets/${'0'.repeat(40)}`)).status, 404);
+  assert.equal((await fetch(`${BASE}/api/assets/not-an-id`)).status, 404);
+});
+
+test('AI cover: built from the description and name, returns an image; needs a description; failures are plain', async () => {
+  const { id, editKey } = await makeStore({ description: 'I teach watercolour painting to college students who want a calm weekend hobby.' });
+  const r = await call(`/api/stores/${id}/cover`, { method: 'POST', key: editKey, body: {} });
+  assert.equal(r.status, 200, r.text);
+  assert.equal(r.json.image.mime, 'image/png');
+  assert.ok(Buffer.from(r.json.image.data, 'base64').subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47])));
+  assert.ok(globalThis.__lastImagePrompt.includes('watercolour painting'), 'uses what they do');
+  assert.ok(globalThis.__lastImagePrompt.includes('Riya Sharma'), 'uses the name as context');
+  assert.match(globalThis.__lastImagePrompt, /no text, letters/i, 'no lettering');
+  assert.match(globalThis.__lastImagePrompt, /No recognisable faces/i, 'no likeness of the creator');
+
+  assert.equal((await call(`/api/stores/${id}/cover`, { method: 'POST', key: 'nope', body: {} })).status, 404, 'needs the edit key');
+
+  const blocked = await makeStore({ description: 'FAKE_IMG_BLOCK I teach something the image model refuses to draw.' });
+  const b = await call(`/api/stores/${blocked.id}/cover`, { method: 'POST', key: blocked.editKey, body: {} });
+  assert.equal(b.status, 422);
+  assert.match(b.json.error.message, /Upload your own image/);
+
+  const missing = await makeStore({ description: 'FAKE_IMG_404 I teach guitar to beginners who want to play songs fast.' });
+  const m = await call(`/api/stores/${missing.id}/cover`, { method: 'POST', key: missing.editKey, body: {} });
+  assert.equal(m.status, 503, 'every image model unavailable');
+  assert.match(m.json.error.message, /aren't available right now/);
+});
+
+test('AI cover is rate limited per visitor', async () => {
+  const { id, editKey } = await makeStore();
+  const ip = '10.9.9.9';
+  let last;
+  for (let i = 0; i < 6; i++) last = await call(`/api/stores/${id}/cover`, { method: 'POST', key: editKey, body: {}, ip });
+  assert.equal(last.status, 429);
+});

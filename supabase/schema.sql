@@ -48,6 +48,22 @@ create index if not exists events_name_created_idx on public.events (name, creat
 create index if not exists events_session_idx on public.events (session_id);
 create index if not exists events_created_idx on public.events (created_at);
 
+-- Profile pictures and cover images (v3). Stored as base64 next to the store so the app needs no
+-- separate file storage; the browser crops/compresses first (avatar ≤400 KB, cover ≤900 KB).
+-- id = sha256(store id + image bytes), first 40 hex chars; served at /api/assets/<id> with an
+-- immutable cache header, so each image is read from the database roughly once per CDN region.
+create table if not exists public.store_assets (
+  id          text primary key check (id ~ '^[a-f0-9]{40}$'),
+  store_id    uuid not null references public.stores(id) on delete cascade,
+  kind        text not null check (kind in ('avatar', 'cover')),
+  source      text not null default 'upload' check (source in ('upload', 'ai')),
+  mime        text not null check (mime in ('image/jpeg', 'image/png', 'image/webp')),
+  bytes       integer not null,
+  data        text not null,
+  created_at  timestamptz not null default now()
+);
+create index if not exists store_assets_store_idx on public.store_assets (store_id);
+
 -- Shared rate limiting across serverless instances (fixed windows, hashed IP buckets).
 create table if not exists public.rate_limits (
   bucket        text not null,
@@ -84,6 +100,7 @@ grant execute on function public.hit_rate_limit(text, integer) to service_role;
 alter table public.stores enable row level security;
 alter table public.generations enable row level security;
 alter table public.events enable row level security;
+alter table public.store_assets enable row level security;
 alter table public.rate_limits enable row level security;
 -- No policies on purpose: the anon/authenticated roles can read or write nothing.
 -- The server uses the service_role/secret key, which bypasses RLS.

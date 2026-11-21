@@ -8,7 +8,7 @@ Built for the SuperProfile *AI Storefront Generator* take-home (PM, AI-native 0�
 
 - **Live app:** https://creatorlaunch-ai1.vercel.app
 - **Decision doc:** [`DECISION_DOC.md`](DECISION_DOC.md) · [PDF](DECISION_DOC.pdf)
-- **Loom script:** [`LOOM_SCRIPT.md`](LOOM_SCRIPT.md)
+- **Loom walkthrough:** https://www.loom.com/share/ad127e97a60840b7b589a4c81c603163 (script: [`LOOM_SCRIPT.md`](LOOM_SCRIPT.md))
 - **Evidence:** [Test report](docs/TEST_REPORT.md) · [Security review](docs/SECURITY_REVIEW.md) · [AI evaluation](docs/AI_EVALUATION.md) · [Baseline audit](docs/BASELINE_AUDIT.md) · [Visual audit](docs/VISUAL_AUDIT.md) · [Submission checklist](docs/FINAL_SUBMISSION_CHECKLIST.md) · [Brand guide](docs/BRAND.md)
 
 ## What it does

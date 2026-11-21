@@ -1,4 +1,4 @@
-// NOTE: the live hero currently shows Riya Sharma's real store (riya-sharma-2): the laptop image is
+// NOTE: the live hero currently shows Meghna's real store (/s/meghna): the laptop image is
 // her dashboard cropped from the owner's screenshot (no URL bar, so no edit key), the phone image is
 // her store re-rendered from her own text and images. This script makes the fictional Meera Shah version.
 // Regenerates the home page hero images from the real app: the creator dashboard

@@ -1,3 +1,6 @@
+// NOTE: the live hero currently shows Riya Sharma's real store (riya-sharma-2): the laptop image is
+// her dashboard cropped from the owner's screenshot (no URL bar, so no edit key), the phone image is
+// her store re-rendered from her own text and images. This script makes the fictional Meera Shah version.
 // Regenerates the home page hero images from the real app: the creator dashboard
 // (public/brand/hero-dashboard.jpg) and a published storefront (public/brand/hero-store.jpg),
 // using a fictional sample creator. Needs the dev server running on PORT (default 4517) with a
